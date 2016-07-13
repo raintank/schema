@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/codeskyblue/go-uuid"
-	"github.com/raintank/raintank-metric/schema"
+	"github.com/raintank/schema"
 )
 
 var errTooSmall = errors.New("too small")
