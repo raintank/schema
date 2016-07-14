@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/codeskyblue/go-uuid"
-	"github.com/raintank/schema"
+	"gopkg.in/raintank/schema.v0"
 )
 
 var errTooSmall = errors.New("too small")
