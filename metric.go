@@ -16,7 +16,7 @@ var errInvalidEmptyName = errors.New("name cannot be empty")
 
 //go:generate msgp
 
-// MetricData contains all metric metadata and a datapoint
+// MetricData contains all metric metadata (some as fields, some as tags) and a datapoint
 type MetricData struct {
 	Id       string   `json:"id"`
 	OrgId    int      `json:"org_id"`
@@ -34,17 +34,19 @@ type MetricData struct {
 // the md5sum is a hash of the the concatination of the
 // metric + each tag key:value pair (in metrics2.0 sense, so also fields), sorted alphabetically.
 func (m *MetricData) SetId() {
-	var buffer bytes.Buffer
-	buffer.WriteString(m.Metric)
-	// all metrics2.0 tags - some of which are stored as fields here
-	tags := make([]string, len(m.Tags)+3)
-	copy(tags, m.Tags)
-	tags[len(m.Tags)] = fmt.Sprintf("interval:%d")
-	tags[len(m.Tags)+1] = "mtype:" + m.Mtype
-	tags[len(m.Tags)+2] = "unit:" + m.Unit
-	sort.Strings(tags)
+	sort.Strings(m.Tags)
+
+	buffer := bytes.NewBufferString(m.Metric)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Unit)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Mtype)
+	buffer.WriteByte(0)
+	fmt.Fprintf(buffer, "%d", m.Interval)
+
 	for _, k := range m.Tags {
-		buffer.WriteString(fmt.Sprintf(";%s", k))
+		buffer.WriteByte(0)
+		buffer.WriteString(k)
 	}
 	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(buffer.Bytes()))
 }
