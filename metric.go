@@ -70,11 +70,19 @@ type MetricDefinition struct {
 }
 
 func (m *MetricDefinition) SetId() {
-	var buffer bytes.Buffer
-	buffer.WriteString(m.Name)
 	sort.Strings(m.Tags)
+
+	buffer := bytes.NewBufferString(m.Metric)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Unit)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Mtype)
+	buffer.WriteByte(0)
+	fmt.Fprintf(buffer, "%d", m.Interval)
+
 	for _, k := range m.Tags {
-		buffer.WriteString(fmt.Sprintf(";%s", k))
+		buffer.WriteByte(0)
+		buffer.WriteString(k)
 	}
 	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(buffer.Bytes()))
 }
