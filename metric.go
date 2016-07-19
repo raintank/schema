@@ -13,6 +13,7 @@ import (
 var errInvalidIntervalzero = errors.New("interval cannot be 0")
 var errInvalidOrgIdzero = errors.New("org-id cannot be 0")
 var errInvalidEmptyName = errors.New("name cannot be empty")
+var errInvalidEmptyMetric = errors.New("metric cannot be empty")
 var errInvalidMtype = errors.New("invalid mtype")
 
 //go:generate msgp
@@ -29,6 +30,25 @@ type MetricData struct {
 	Time     int64    `json:"time"`
 	Mtype    string   `json:"mtype"`
 	Tags     []string `json:"tags" elastic:"type:string,index:not_analyzed"`
+}
+
+func (m *MetricData) Validate() error {
+	if m.OrgId == 0 {
+		return errInvalidOrgIdzero
+	}
+	if m.Interval == 0 {
+		return errInvalidIntervalzero
+	}
+	if m.Name == "" {
+		return errInvalidEmptyName
+	}
+	if m.Metric == "" {
+		return errInvalidEmptyMetric
+	}
+	if m.Mtype == "" || (m.Mtype != "gauge" && m.Mtype != "rate" && m.Mtype != "count" && m.Mtype != "counter" && m.Mtype != "timestamp") {
+		return errInvalidMtype
+	}
+	return nil
 }
 
 // returns a id (hash key) in the format OrgId.md5Sum
@@ -97,6 +117,9 @@ func (m *MetricDefinition) Validate() error {
 	}
 	if m.Name == "" {
 		return errInvalidEmptyName
+	}
+	if m.Metric == "" {
+		return errInvalidEmptyMetric
 	}
 	if m.Mtype == "" || (m.Mtype != "gauge" && m.Mtype != "rate" && m.Mtype != "count" && m.Mtype != "counter" && m.Mtype != "timestamp") {
 		return errInvalidMtype
