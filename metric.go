@@ -18,25 +18,31 @@ var errInvalidEmptyName = errors.New("name cannot be empty")
 
 // MetricData contains all metric metadata and a datapoint
 type MetricData struct {
-	Id         string   `json:"id"`
-	OrgId      int      `json:"org_id"`
-	Name       string   `json:"name"`
-	Metric     string   `json:"metric"`
-	Interval   int      `json:"interval"`
-	Value      float64  `json:"value"`
-	Unit       string   `json:"unit"`
-	Time       int64    `json:"time"`
-	TargetType string   `json:"target_type"`
-	Tags       []string `json:"tags" elastic:"type:string,index:not_analyzed"`
+	Id       string   `json:"id"`
+	OrgId    int      `json:"org_id"`
+	Name     string   `json:"name"`
+	Metric   string   `json:"metric"`
+	Interval int      `json:"interval"`
+	Value    float64  `json:"value"`
+	Unit     string   `json:"unit"`
+	Time     int64    `json:"time"`
+	Mtype    string   `json:"mtype"`
+	Tags     []string `json:"tags" elastic:"type:string,index:not_analyzed"`
 }
 
 // returns a id (hash key) in the format OrgId.md5Sum
 // the md5sum is a hash of the the concatination of the
-// series name + each tag key:value pair, sorted alphabetically.
+// metric + each tag key:value pair (in metrics2.0 sense, so also fields), sorted alphabetically.
 func (m *MetricData) SetId() {
 	var buffer bytes.Buffer
-	buffer.WriteString(m.Name)
-	sort.Strings(m.Tags)
+	buffer.WriteString(m.Metric)
+	// all metrics2.0 tags - some of which are stored as fields here
+	tags := make([]string, len(m.Tags)+3)
+	copy(tags, m.Tags)
+	tags[len(m.Tags)] = fmt.Sprintf("interval:%d")
+	tags[len(m.Tags)+1] = "mtype:" + m.Mtype
+	tags[len(m.Tags)+2] = "unit:" + m.Unit
+	sort.Strings(tags)
 	for _, k := range m.Tags {
 		buffer.WriteString(fmt.Sprintf(";%s", k))
 	}
@@ -54,9 +60,9 @@ type MetricDefinition struct {
 	Metric     string            `json:"metric"`                                        // kairosdb format (like graphite, but not including some tags)
 	Interval   int               `json:"interval"`                                      // minimum 10
 	Unit       string            `json:"unit"`
-	TargetType string            `json:"target_type"` // an emum ["derive","gauge"] in nodejs
+	Mtype      string            `json:"mtype"`
 	Tags       []string          `json:"tags" elastic:"type:string,index:not_analyzed"`
-	LastUpdate int64             `json:"lastUpdate"` // unix epoch time, per the nodejs definition
+	LastUpdate int64             `json:"lastUpdate"` // unix timestamp
 	Nodes      map[string]string `json:"nodes"`
 	NodeCount  int               `json:"node_count"`
 }
@@ -108,7 +114,7 @@ func MetricDefinitionFromMetricData(d *MetricData) *MetricDefinition {
 		Name:       d.Name,
 		OrgId:      d.OrgId,
 		Metric:     d.Metric,
-		TargetType: d.TargetType,
+		Mtype:      d.Mtype,
 		Interval:   d.Interval,
 		LastUpdate: d.Time,
 		Unit:       d.Unit,
