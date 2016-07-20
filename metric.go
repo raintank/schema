@@ -13,32 +13,61 @@ import (
 var errInvalidIntervalzero = errors.New("interval cannot be 0")
 var errInvalidOrgIdzero = errors.New("org-id cannot be 0")
 var errInvalidEmptyName = errors.New("name cannot be empty")
+var errInvalidEmptyMetric = errors.New("metric cannot be empty")
+var errInvalidMtype = errors.New("invalid mtype")
 
 //go:generate msgp
 
-// MetricData contains all metric metadata and a datapoint
+// MetricData contains all metric metadata (some as fields, some as tags) and a datapoint
 type MetricData struct {
-	Id         string   `json:"id"`
-	OrgId      int      `json:"org_id"`
-	Name       string   `json:"name"`
-	Metric     string   `json:"metric"`
-	Interval   int      `json:"interval"`
-	Value      float64  `json:"value"`
-	Unit       string   `json:"unit"`
-	Time       int64    `json:"time"`
-	TargetType string   `json:"target_type"`
-	Tags       []string `json:"tags" elastic:"type:string,index:not_analyzed"`
+	Id       string   `json:"id"`
+	OrgId    int      `json:"org_id"`
+	Name     string   `json:"name"`
+	Metric   string   `json:"metric"`
+	Interval int      `json:"interval"`
+	Value    float64  `json:"value"`
+	Unit     string   `json:"unit"`
+	Time     int64    `json:"time"`
+	Mtype    string   `json:"mtype"`
+	Tags     []string `json:"tags" elastic:"type:string,index:not_analyzed"`
+}
+
+func (m *MetricData) Validate() error {
+	if m.OrgId == 0 {
+		return errInvalidOrgIdzero
+	}
+	if m.Interval == 0 {
+		return errInvalidIntervalzero
+	}
+	if m.Name == "" {
+		return errInvalidEmptyName
+	}
+	if m.Metric == "" {
+		return errInvalidEmptyMetric
+	}
+	if m.Mtype == "" || (m.Mtype != "gauge" && m.Mtype != "rate" && m.Mtype != "count" && m.Mtype != "counter" && m.Mtype != "timestamp") {
+		return errInvalidMtype
+	}
+	return nil
 }
 
 // returns a id (hash key) in the format OrgId.md5Sum
 // the md5sum is a hash of the the concatination of the
-// series name + each tag key:value pair, sorted alphabetically.
+// metric + each tag key:value pair (in metrics2.0 sense, so also fields), sorted alphabetically.
 func (m *MetricData) SetId() {
-	var buffer bytes.Buffer
-	buffer.WriteString(m.Name)
 	sort.Strings(m.Tags)
+
+	buffer := bytes.NewBufferString(m.Metric)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Unit)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Mtype)
+	buffer.WriteByte(0)
+	fmt.Fprintf(buffer, "%d", m.Interval)
+
 	for _, k := range m.Tags {
-		buffer.WriteString(fmt.Sprintf(";%s", k))
+		buffer.WriteByte(0)
+		buffer.WriteString(k)
 	}
 	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(buffer.Bytes()))
 }
@@ -54,19 +83,27 @@ type MetricDefinition struct {
 	Metric     string            `json:"metric"`                                        // kairosdb format (like graphite, but not including some tags)
 	Interval   int               `json:"interval"`                                      // minimum 10
 	Unit       string            `json:"unit"`
-	TargetType string            `json:"target_type"` // an emum ["derive","gauge"] in nodejs
+	Mtype      string            `json:"mtype"`
 	Tags       []string          `json:"tags" elastic:"type:string,index:not_analyzed"`
-	LastUpdate int64             `json:"lastUpdate"` // unix epoch time, per the nodejs definition
+	LastUpdate int64             `json:"lastUpdate"` // unix timestamp
 	Nodes      map[string]string `json:"nodes"`
 	NodeCount  int               `json:"node_count"`
 }
 
 func (m *MetricDefinition) SetId() {
-	var buffer bytes.Buffer
-	buffer.WriteString(m.Name)
 	sort.Strings(m.Tags)
+
+	buffer := bytes.NewBufferString(m.Metric)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Unit)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Mtype)
+	buffer.WriteByte(0)
+	fmt.Fprintf(buffer, "%d", m.Interval)
+
 	for _, k := range m.Tags {
-		buffer.WriteString(fmt.Sprintf(";%s", k))
+		buffer.WriteByte(0)
+		buffer.WriteString(k)
 	}
 	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(buffer.Bytes()))
 }
@@ -80,6 +117,12 @@ func (m *MetricDefinition) Validate() error {
 	}
 	if m.Name == "" {
 		return errInvalidEmptyName
+	}
+	if m.Metric == "" {
+		return errInvalidEmptyMetric
+	}
+	if m.Mtype == "" || (m.Mtype != "gauge" && m.Mtype != "rate" && m.Mtype != "count" && m.Mtype != "counter" && m.Mtype != "timestamp") {
+		return errInvalidMtype
 	}
 	return nil
 }
@@ -108,7 +151,7 @@ func MetricDefinitionFromMetricData(d *MetricData) *MetricDefinition {
 		Name:       d.Name,
 		OrgId:      d.OrgId,
 		Metric:     d.Metric,
-		TargetType: d.TargetType,
+		Mtype:      d.Mtype,
 		Interval:   d.Interval,
 		LastUpdate: d.Time,
 		Unit:       d.Unit,

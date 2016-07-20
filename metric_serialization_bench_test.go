@@ -34,15 +34,15 @@ func getDifferentMetrics(amount int) []*MetricData {
 	out := make([]*MetricData, amount)
 	for i := 0; i < amount; i++ {
 		out[i] = &MetricData{
-			OrgId:      i,
-			Name:       names[i%len(names)] + "foo.bar" + strconv.Itoa(i),
-			Metric:     names[i%len(names)],
-			Interval:   intervals[i%len(intervals)],
-			Value:      r.Float64(),
-			Unit:       "foo",
-			Time:       r.Int63(),
-			TargetType: "bleh",
-			Tags:       tags[i%len(tags)],
+			OrgId:    i,
+			Name:     names[i%len(names)] + "foo.bar" + strconv.Itoa(i),
+			Metric:   names[i%len(names)],
+			Interval: intervals[i%len(intervals)],
+			Value:    r.Float64(),
+			Unit:     "foo",
+			Time:     r.Int63(),
+			Mtype:    "bleh",
+			Tags:     tags[i%len(tags)],
 		}
 	}
 	return out
