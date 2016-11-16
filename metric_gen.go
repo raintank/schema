@@ -455,13 +455,13 @@ func (z MetricDataArray) Msgsize() (s int) {
 func (z *MetricDefinition) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
-	var zrsw uint32
-	zrsw, err = dc.ReadMapHeader()
+	var zcxo uint32
+	zcxo, err = dc.ReadMapHeader()
 	if err != nil {
 		return
 	}
-	for zrsw > 0 {
-		zrsw--
+	for zcxo > 0 {
+		zcxo--
 		field, err = dc.ReadMapKeyPtr()
 		if err != nil {
 			return
@@ -503,15 +503,15 @@ func (z *MetricDefinition) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "Tags":
-			var zxpk uint32
-			zxpk, err = dc.ReadArrayHeader()
+			var zeff uint32
+			zeff, err = dc.ReadArrayHeader()
 			if err != nil {
 				return
 			}
-			if cap(z.Tags) >= int(zxpk) {
-				z.Tags = (z.Tags)[:zxpk]
+			if cap(z.Tags) >= int(zeff) {
+				z.Tags = (z.Tags)[:zeff]
 			} else {
-				z.Tags = make([]string, zxpk)
+				z.Tags = make([]string, zeff)
 			}
 			for zjfb := range z.Tags {
 				z.Tags[zjfb], err = dc.ReadString()
@@ -524,35 +524,8 @@ func (z *MetricDefinition) DecodeMsg(dc *msgp.Reader) (err error) {
 			if err != nil {
 				return
 			}
-		case "Nodes":
-			var zdnj uint32
-			zdnj, err = dc.ReadMapHeader()
-			if err != nil {
-				return
-			}
-			if z.Nodes == nil && zdnj > 0 {
-				z.Nodes = make(map[string]string, zdnj)
-			} else if len(z.Nodes) > 0 {
-				for key, _ := range z.Nodes {
-					delete(z.Nodes, key)
-				}
-			}
-			for zdnj > 0 {
-				zdnj--
-				var zcxo string
-				var zeff string
-				zcxo, err = dc.ReadString()
-				if err != nil {
-					return
-				}
-				zeff, err = dc.ReadString()
-				if err != nil {
-					return
-				}
-				z.Nodes[zcxo] = zeff
-			}
-		case "NodeCount":
-			z.NodeCount, err = dc.ReadInt()
+		case "Partition":
+			z.Partition, err = dc.ReadInt32()
 			if err != nil {
 				return
 			}
@@ -568,9 +541,9 @@ func (z *MetricDefinition) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *MetricDefinition) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 11
+	// map header, size 10
 	// write "Id"
-	err = en.Append(0x8b, 0xa2, 0x49, 0x64)
+	err = en.Append(0x8a, 0xa2, 0x49, 0x64)
 	if err != nil {
 		return err
 	}
@@ -656,31 +629,12 @@ func (z *MetricDefinition) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	// write "Nodes"
-	err = en.Append(0xa5, 0x4e, 0x6f, 0x64, 0x65, 0x73)
+	// write "Partition"
+	err = en.Append(0xa9, 0x50, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e)
 	if err != nil {
 		return err
 	}
-	err = en.WriteMapHeader(uint32(len(z.Nodes)))
-	if err != nil {
-		return
-	}
-	for zcxo, zeff := range z.Nodes {
-		err = en.WriteString(zcxo)
-		if err != nil {
-			return
-		}
-		err = en.WriteString(zeff)
-		if err != nil {
-			return
-		}
-	}
-	// write "NodeCount"
-	err = en.Append(0xa9, 0x4e, 0x6f, 0x64, 0x65, 0x43, 0x6f, 0x75, 0x6e, 0x74)
-	if err != nil {
-		return err
-	}
-	err = en.WriteInt(z.NodeCount)
+	err = en.WriteInt32(z.Partition)
 	if err != nil {
 		return
 	}
@@ -690,9 +644,9 @@ func (z *MetricDefinition) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *MetricDefinition) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 11
+	// map header, size 10
 	// string "Id"
-	o = append(o, 0x8b, 0xa2, 0x49, 0x64)
+	o = append(o, 0x8a, 0xa2, 0x49, 0x64)
 	o = msgp.AppendString(o, z.Id)
 	// string "OrgId"
 	o = append(o, 0xa5, 0x4f, 0x72, 0x67, 0x49, 0x64)
@@ -721,16 +675,9 @@ func (z *MetricDefinition) MarshalMsg(b []byte) (o []byte, err error) {
 	// string "LastUpdate"
 	o = append(o, 0xaa, 0x4c, 0x61, 0x73, 0x74, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65)
 	o = msgp.AppendInt64(o, z.LastUpdate)
-	// string "Nodes"
-	o = append(o, 0xa5, 0x4e, 0x6f, 0x64, 0x65, 0x73)
-	o = msgp.AppendMapHeader(o, uint32(len(z.Nodes)))
-	for zcxo, zeff := range z.Nodes {
-		o = msgp.AppendString(o, zcxo)
-		o = msgp.AppendString(o, zeff)
-	}
-	// string "NodeCount"
-	o = append(o, 0xa9, 0x4e, 0x6f, 0x64, 0x65, 0x43, 0x6f, 0x75, 0x6e, 0x74)
-	o = msgp.AppendInt(o, z.NodeCount)
+	// string "Partition"
+	o = append(o, 0xa9, 0x50, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e)
+	o = msgp.AppendInt32(o, z.Partition)
 	return
 }
 
@@ -738,13 +685,13 @@ func (z *MetricDefinition) MarshalMsg(b []byte) (o []byte, err error) {
 func (z *MetricDefinition) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
-	var zobc uint32
-	zobc, bts, err = msgp.ReadMapHeaderBytes(bts)
+	var zrsw uint32
+	zrsw, bts, err = msgp.ReadMapHeaderBytes(bts)
 	if err != nil {
 		return
 	}
-	for zobc > 0 {
-		zobc--
+	for zrsw > 0 {
+		zrsw--
 		field, bts, err = msgp.ReadMapKeyZC(bts)
 		if err != nil {
 			return
@@ -786,15 +733,15 @@ func (z *MetricDefinition) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "Tags":
-			var zsnv uint32
-			zsnv, bts, err = msgp.ReadArrayHeaderBytes(bts)
+			var zxpk uint32
+			zxpk, bts, err = msgp.ReadArrayHeaderBytes(bts)
 			if err != nil {
 				return
 			}
-			if cap(z.Tags) >= int(zsnv) {
-				z.Tags = (z.Tags)[:zsnv]
+			if cap(z.Tags) >= int(zxpk) {
+				z.Tags = (z.Tags)[:zxpk]
 			} else {
-				z.Tags = make([]string, zsnv)
+				z.Tags = make([]string, zxpk)
 			}
 			for zjfb := range z.Tags {
 				z.Tags[zjfb], bts, err = msgp.ReadStringBytes(bts)
@@ -807,35 +754,8 @@ func (z *MetricDefinition) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			if err != nil {
 				return
 			}
-		case "Nodes":
-			var zkgt uint32
-			zkgt, bts, err = msgp.ReadMapHeaderBytes(bts)
-			if err != nil {
-				return
-			}
-			if z.Nodes == nil && zkgt > 0 {
-				z.Nodes = make(map[string]string, zkgt)
-			} else if len(z.Nodes) > 0 {
-				for key, _ := range z.Nodes {
-					delete(z.Nodes, key)
-				}
-			}
-			for zkgt > 0 {
-				var zcxo string
-				var zeff string
-				zkgt--
-				zcxo, bts, err = msgp.ReadStringBytes(bts)
-				if err != nil {
-					return
-				}
-				zeff, bts, err = msgp.ReadStringBytes(bts)
-				if err != nil {
-					return
-				}
-				z.Nodes[zcxo] = zeff
-			}
-		case "NodeCount":
-			z.NodeCount, bts, err = msgp.ReadIntBytes(bts)
+		case "Partition":
+			z.Partition, bts, err = msgp.ReadInt32Bytes(bts)
 			if err != nil {
 				return
 			}
@@ -856,13 +776,6 @@ func (z *MetricDefinition) Msgsize() (s int) {
 	for zjfb := range z.Tags {
 		s += msgp.StringPrefixSize + len(z.Tags[zjfb])
 	}
-	s += 11 + msgp.Int64Size + 6 + msgp.MapHeaderSize
-	if z.Nodes != nil {
-		for zcxo, zeff := range z.Nodes {
-			_ = zeff
-			s += msgp.StringPrefixSize + len(zcxo) + msgp.StringPrefixSize + len(zeff)
-		}
-	}
-	s += 10 + msgp.IntSize
+	s += 11 + msgp.Int64Size + 10 + msgp.Int32Size
 	return
 }
