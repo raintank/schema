@@ -17,7 +17,7 @@ var errInvalidEmptyMetric = errors.New("metric cannot be empty")
 var errInvalidMtype = errors.New("invalid mtype")
 
 type PartitionedMetric interface {
-	Validate()
+	Validate() error
 	SetId()
 	// return a []byte key comprised of the metric's OrgId
 	// accepts an input []byte to allow callers to re-use
@@ -68,7 +68,7 @@ func (m *MetricData) KeyByOrgId(b []byte) []byte {
 	if len(b) < 4 {
 		b = append(b, make([]byte, 4-len(b))...)
 	}
-	binary.LittleEndian.PutUint32(key, uint32(m.OrgId))
+	binary.LittleEndian.PutUint32(b, uint32(m.OrgId))
 	return b
 }
 
@@ -156,7 +156,7 @@ func (m *MetricDefinition) KeyByOrgId(b []byte) []byte {
 	if len(b) < 4 {
 		b = append(b, make([]byte, 4-len(b))...)
 	}
-	binary.LittleEndian.PutUint32(key, uint32(m.OrgId))
+	binary.LittleEndian.PutUint32(b, uint32(m.OrgId))
 	return b
 }
 
