@@ -17,7 +17,7 @@ var errInvalidEmptyMetric = errors.New("metric cannot be empty")
 var errInvalidMtype = errors.New("invalid mtype")
 
 type PartitionedMetric interface {
-	Validate()
+	Validate() error
 	SetId()
 	// return a []byte key comprised of the metric's OrgId
 	// accepts an input []byte to allow callers to re-use
