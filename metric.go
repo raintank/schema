@@ -68,7 +68,7 @@ func (m *MetricData) KeyByOrgId(b []byte) []byte {
 	if len(b) < 4 {
 		b = append(b, make([]byte, 4-len(b))...)
 	}
-	binary.LittleEndian.PutUint32(key, uint32(m.OrgId))
+	binary.LittleEndian.PutUint32(b, uint32(m.OrgId))
 	return b
 }
 
@@ -156,7 +156,7 @@ func (m *MetricDefinition) KeyByOrgId(b []byte) []byte {
 	if len(b) < 4 {
 		b = append(b, make([]byte, 4-len(b))...)
 	}
-	binary.LittleEndian.PutUint32(key, uint32(m.OrgId))
+	binary.LittleEndian.PutUint32(b, uint32(m.OrgId))
 	return b
 }
 
