@@ -20,3 +20,28 @@ func BenchmarkSetId(b *testing.B) {
 		metric.SetId()
 	}
 }
+
+func TestTagValidation(t *testing.T) {
+	type testCase struct {
+		tag       []string
+		expecting bool
+	}
+
+	testCases := []testCase{
+		{[]string{"abc=cba"}, true},
+		{[]string{"a="}, false},
+		{[]string{"a!="}, false},
+		{[]string{"=abc"}, false},
+		{[]string{"@#$%!=(*&"}, false},
+		{[]string{"!@#$%=(*&"}, false},
+		{[]string{"@#;$%=(*&"}, false},
+		{[]string{"@#$%=(;*&"}, false},
+		{[]string{"@#$%=(*&"}, true},
+	}
+
+	for _, tc := range testCases {
+		if validateTags(tc.tag) != tc.expecting {
+			t.Fatalf("Testcase %s returned %t, but expected %t", tc.tag, !tc.expecting, tc.expecting)
+		}
+	}
+}
