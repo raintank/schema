@@ -42,8 +42,8 @@ func TestTagValidation(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		if validateTags(tc.tag) != tc.expecting {
-			t.Fatalf("Testcase %s returned %t, but expected %t", tc.tag, !tc.expecting, tc.expecting)
+		if tc.expecting != validateTags(tc.tag) {
+			t.Fatalf("Expected %t, but testcase %s returned %t", tc.expecting, tc.tag, !tc.expecting)
 		}
 	}
 }
