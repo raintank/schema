@@ -212,6 +212,8 @@ func MetricDefinitionFromMetricData(d *MetricData) *MetricDefinition {
 
 // validateTags verifies that all the tags are of a valid format. If one or more
 // are invalid it returns false, otherwise true.
+// a valid format is anything that looks like key=value, the length of key and
+// value must be >0 and both must not contain the ; character.
 func validateTags(tags []string) bool {
 	for _, t := range tags {
 		if len(t) == 0 {
