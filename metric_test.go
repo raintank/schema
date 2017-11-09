@@ -47,3 +47,37 @@ func TestTagValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestNameWithTags(t *testing.T) {
+	type testCase struct {
+		expectedName string
+		md           MetricDefinition
+	}
+
+	testCases := []testCase{
+		{
+			"a.b.c;tag1=value1",
+			MetricDefinition{Name: "a.b.c", Tags: []string{"tag1=value1", "name=ccc"}},
+		}, {
+			"a.b.c;a=a;b=b;c=c",
+			MetricDefinition{Name: "a.b.c", Tags: []string{"name=a.b.c", "c=c", "b=b", "a=a"}},
+		}, {
+			"a.b.c",
+			MetricDefinition{Name: "a.b.c", Tags: []string{"name=a.b.c"}},
+		}, {
+			"a.b.c",
+			MetricDefinition{Name: "a.b.c", Tags: []string{}},
+		}, {
+			"a.b.c;a=a;b=b;c=c",
+			MetricDefinition{Name: "a.b.c", Tags: []string{"c=c", "a=a", "b=b"}},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc.md.SetId()
+		fullName := tc.md.NameWithTags()
+		if tc.expectedName != fullName {
+			t.Fatalf("Expected name %s, but got %s", tc.expectedName, fullName)
+		}
+	}
+}

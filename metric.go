@@ -184,7 +184,18 @@ func (m *MetricDefinition) KeyBySeries(b []byte) []byte {
 	return b
 }
 
-func (m *MetricDefinition) FullNameWithTags() string {
+// NameWithTags returns the full metric name, including tags
+// the special tag "name" is ignored
+//
+// it is assumed that SetId() is called before this method, this ensures
+// that the tags are sorted
+//
+// example:
+// name: a.b.c
+// tags: c=c, b=b, a=a, name=a.b.c
+// becomes: a.b.c;a=a;b=b;c=c
+//
+func (m *MetricDefinition) NameWithTags() string {
 	nameLen := len(m.Name)
 	count := 0
 	for _, tag := range m.Tags {
