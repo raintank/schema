@@ -1,7 +1,9 @@
 package schema
 
 import (
+	"reflect"
 	"testing"
+	"unsafe"
 )
 
 func BenchmarkSetId(b *testing.B) {
@@ -50,34 +52,78 @@ func TestTagValidation(t *testing.T) {
 
 func TestNameWithTags(t *testing.T) {
 	type testCase struct {
-		expectedName string
-		md           MetricDefinition
+		expectedName         string
+		expectedNameWithTags string
+		expectedTags         []string
+		md                   MetricDefinition
 	}
 
 	testCases := []testCase{
 		{
+			"a.b.c",
 			"a.b.c;tag1=value1",
+			[]string{"tag1=value1"},
 			MetricDefinition{Name: "a.b.c", Tags: []string{"tag1=value1", "name=ccc"}},
 		}, {
+			"a.b.c",
 			"a.b.c;a=a;b=b;c=c",
+			[]string{"a=a", "b=b", "c=c"},
 			MetricDefinition{Name: "a.b.c", Tags: []string{"name=a.b.c", "c=c", "b=b", "a=a"}},
 		}, {
 			"a.b.c",
+			"a.b.c",
+			[]string{},
 			MetricDefinition{Name: "a.b.c", Tags: []string{"name=a.b.c"}},
 		}, {
 			"a.b.c",
+			"a.b.c",
+			[]string{},
 			MetricDefinition{Name: "a.b.c", Tags: []string{}},
 		}, {
-			"a.b.c;a=a;b=b;c=c",
-			MetricDefinition{Name: "a.b.c", Tags: []string{"c=c", "a=a", "b=b"}},
+			"c",
+			"c;a=a;b=b;c=c",
+			[]string{"a=a", "b=b", "c=c"},
+			MetricDefinition{Name: "c", Tags: []string{"c=c", "a=a", "b=b"}},
 		},
 	}
 
 	for _, tc := range testCases {
 		tc.md.SetId()
-		fullName := tc.md.NameWithTags()
-		if tc.expectedName != fullName {
-			t.Fatalf("Expected name %s, but got %s", tc.expectedName, fullName)
+		if tc.expectedName != tc.md.Name {
+			t.Fatalf("Expected name %s, but got %s", tc.expectedName, tc.md.Name)
+		}
+
+		if tc.expectedNameWithTags != tc.md.NameWithTags {
+			t.Fatalf("Expected name with tags %s, but got %s", tc.expectedNameWithTags, tc.md.NameWithTags)
+		}
+
+		if len(tc.expectedTags) != len(tc.md.Tags) {
+			t.Fatalf("Expected tags %+v, but got %+v", tc.expectedTags, tc.md.Tags)
+		}
+
+		for i := range tc.expectedTags {
+			if len(tc.expectedTags[i]) != len(tc.md.Tags[i]) {
+				t.Fatalf("Expected tags %+v, but got %+v", tc.expectedTags, tc.md.Tags)
+			}
+		}
+
+		getAddress := func(s string) uint {
+			return uint((*reflect.StringHeader)(unsafe.Pointer(&s)).Data)
+		}
+
+		nameWithTagsAddr := getAddress(tc.md.NameWithTags)
+
+		nameAddr := getAddress(tc.md.Name)
+		if nameAddr != nameWithTagsAddr {
+			t.Fatalf("Name slice does not appear to be slice of base string, %d != %d", nameAddr, nameWithTagsAddr)
+		}
+
+		for i := range tc.md.Tags {
+			tagAddr := getAddress(tc.md.Tags[i])
+
+			if tagAddr < nameWithTagsAddr || tagAddr > nameWithTagsAddr+uint(len(tc.md.NameWithTags)) {
+				t.Fatalf("Tag slice does not appear to be slice of base string, %d != %d", tagAddr, nameWithTagsAddr)
+			}
 		}
 	}
 }

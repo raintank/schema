@@ -113,34 +113,54 @@ type MetricDataArray []*MetricData
 
 // for ES
 type MetricDefinition struct {
-	Id         string   `json:"id"`
-	OrgId      int      `json:"org_id"`
-	Name       string   `json:"name" elastic:"type:string,index:not_analyzed"` // graphite format
-	Metric     string   `json:"metric"`                                        // kairosdb format (like graphite, but not including some tags)
-	Interval   int      `json:"interval"`                                      // minimum 10
-	Unit       string   `json:"unit"`
-	Mtype      string   `json:"mtype"`
-	Tags       []string `json:"tags" elastic:"type:string,index:not_analyzed"`
-	LastUpdate int64    `json:"lastUpdate"` // unix timestamp
-	Partition  int32    `json:"partition"`
+	Id           string   `json:"id"`
+	OrgId        int      `json:"org_id"`
+	Name         string   `json:"name" elastic:"type:string,index:not_analyzed"` // graphite format
+	Metric       string   `json:"metric"`                                        // kairosdb format (like graphite, but not including some tags)
+	Interval     int      `json:"interval"`                                      // minimum 10
+	Unit         string   `json:"unit"`
+	Mtype        string   `json:"mtype"`
+	Tags         []string `json:"tags" elastic:"type:string,index:not_analyzed"`
+	LastUpdate   int64    `json:"lastUpdate"` // unix timestamp
+	Partition    int32    `json:"partition"`
+	NameWithTags string   `json:"nameWithTags"`
 }
 
 func (m *MetricDefinition) SetId() {
 	sort.Strings(m.Tags)
 
-	buffer := bytes.NewBufferString(m.Metric)
-	buffer.WriteByte(0)
-	buffer.WriteString(m.Unit)
-	buffer.WriteByte(0)
-	buffer.WriteString(m.Mtype)
-	buffer.WriteByte(0)
-	fmt.Fprintf(buffer, "%d", m.Interval)
+	nameWithTagsBuffer := bytes.NewBufferString(m.Name)
 
-	for _, k := range m.Tags {
-		buffer.WriteByte(0)
-		buffer.WriteString(k)
+	idBuffer := bytes.NewBufferString(m.Metric)
+	idBuffer.WriteByte(0)
+	idBuffer.WriteString(m.Unit)
+	idBuffer.WriteByte(0)
+	idBuffer.WriteString(m.Mtype)
+	idBuffer.WriteByte(0)
+	fmt.Fprintf(idBuffer, "%d", m.Interval)
+
+	tagPositions := make([]int, 0, len(m.Tags)*2)
+	for _, t := range m.Tags {
+		if len(t) >= 5 && t[:5] == "name=" {
+			continue
+		}
+
+		nameWithTagsBuffer.WriteString(";")
+		tagPositions = append(tagPositions, nameWithTagsBuffer.Len())
+		nameWithTagsBuffer.WriteString(t)
+		tagPositions = append(tagPositions, nameWithTagsBuffer.Len())
+
+		idBuffer.WriteByte(0)
+		idBuffer.WriteString(t)
 	}
-	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(buffer.Bytes()))
+
+	m.NameWithTags = fmt.Sprintf("%s", nameWithTagsBuffer)
+	m.Tags = make([]string, len(tagPositions)/2)
+	for i := 0; i < len(m.Tags); i++ {
+		m.Tags[i] = m.NameWithTags[tagPositions[i*2]:tagPositions[i*2+1]]
+	}
+	m.Name = m.NameWithTags[:len(m.Name)]
+	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(idBuffer.Bytes()))
 }
 
 func (m *MetricDefinition) Validate() error {
@@ -182,40 +202,6 @@ func (m *MetricDefinition) KeyByOrgId(b []byte) []byte {
 func (m *MetricDefinition) KeyBySeries(b []byte) []byte {
 	b = append(b, []byte(m.Name)...)
 	return b
-}
-
-// NameWithTags returns the full metric name, including tags
-// the special tag "name" is ignored
-//
-// it is assumed that SetId() is called before this method, this ensures
-// that the tags are sorted
-//
-// example:
-// name: a.b.c
-// tags: c=c, b=b, a=a, name=a.b.c
-// becomes: a.b.c;a=a;b=b;c=c
-//
-func (m *MetricDefinition) NameWithTags() string {
-	nameLen := len(m.Name)
-	count := 0
-	for _, tag := range m.Tags {
-		if len(tag) >= 5 && tag[:5] == "name=" {
-			continue
-		}
-		count++
-		nameLen += len(tag)
-	}
-	nameLen += count // accounting for all the ";" between tags
-	b := make([]byte, nameLen)
-	pos := copy(b, m.Name)
-	for _, tag := range m.Tags {
-		if len(tag) >= 5 && tag[:5] == "name=" {
-			continue
-		}
-		pos += copy(b[pos:], ";")
-		pos += copy(b[pos:], tag)
-	}
-	return string(b)
 }
 
 func MetricDefinitionFromJSON(b []byte) (*MetricDefinition, error) {
