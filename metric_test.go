@@ -121,7 +121,7 @@ func TestNameWithTags(t *testing.T) {
 		for i := range tc.md.Tags {
 			tagAddr := getAddress(tc.md.Tags[i])
 
-			if tagAddr < nameWithTagsAddr || tagAddr > nameWithTagsAddr+uint(len(tc.md.NameWithTags)) {
+			if tagAddr < nameWithTagsAddr || tagAddr >= nameWithTagsAddr+uint(len(tc.md.NameWithTags)) {
 				t.Fatalf("Tag slice does not appear to be slice of base string, %d != %d", tagAddr, nameWithTagsAddr)
 			}
 		}
