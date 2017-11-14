@@ -63,27 +63,27 @@ func TestNameWithTags(t *testing.T) {
 			"a.b.c",
 			"a.b.c;tag1=value1",
 			[]string{"tag1=value1"},
-			MetricDefinition{Name: "a.b.c", Tags: []string{"tag1=value1", "name=ccc"}},
+			*NewMetricDefinition("a.b.c", []string{"tag1=value1", "name=ccc"}),
 		}, {
 			"a.b.c",
 			"a.b.c;a=a;b=b;c=c",
 			[]string{"a=a", "b=b", "c=c"},
-			MetricDefinition{Name: "a.b.c", Tags: []string{"name=a.b.c", "c=c", "b=b", "a=a"}},
+			*NewMetricDefinition("a.b.c", []string{"name=a.b.c", "c=c", "b=b", "a=a"}),
 		}, {
 			"a.b.c",
 			"a.b.c",
 			[]string{},
-			MetricDefinition{Name: "a.b.c", Tags: []string{"name=a.b.c"}},
+			*NewMetricDefinition("a.b.c", []string{"name=a.b.c"}),
 		}, {
 			"a.b.c",
 			"a.b.c",
 			[]string{},
-			MetricDefinition{Name: "a.b.c", Tags: []string{}},
+			*NewMetricDefinition("a.b.c", []string{}),
 		}, {
 			"c",
 			"c;a=a;b=b;c=c",
 			[]string{"a=a", "b=b", "c=c"},
-			MetricDefinition{Name: "c", Tags: []string{"c=c", "a=a", "b=b"}},
+			*NewMetricDefinition("c", []string{"c=c", "a=a", "b=b"}),
 		},
 	}
 

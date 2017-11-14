@@ -126,19 +126,20 @@ type MetricDefinition struct {
 	NameWithTags string   `json:"nameWithTags"`
 }
 
-func (m *MetricDefinition) SetId() {
-	sort.Strings(m.Tags)
+func NewMetricDefinition(name string, tags []string) *MetricDefinition {
+	sort.Strings(tags)
 
+	m := &MetricDefinition{Name: name, Tags: tags}
+	m.DeduplicateNameWithTags()
+
+	return m
+}
+
+// DeduplicateNameWithTags deduplicates the name and tags strings by storing
+// their content as a single string in .NameWithTags and then makes .Name and
+// the .Tags slices of it.
+func (m *MetricDefinition) DeduplicateNameWithTags() {
 	nameWithTagsBuffer := bytes.NewBufferString(m.Name)
-
-	idBuffer := bytes.NewBufferString(m.Metric)
-	idBuffer.WriteByte(0)
-	idBuffer.WriteString(m.Unit)
-	idBuffer.WriteByte(0)
-	idBuffer.WriteString(m.Mtype)
-	idBuffer.WriteByte(0)
-	fmt.Fprintf(idBuffer, "%d", m.Interval)
-
 	tagPositions := make([]int, 0, len(m.Tags)*2)
 	for _, t := range m.Tags {
 		if len(t) >= 5 && t[:5] == "name=" {
@@ -149,9 +150,6 @@ func (m *MetricDefinition) SetId() {
 		tagPositions = append(tagPositions, nameWithTagsBuffer.Len())
 		nameWithTagsBuffer.WriteString(t)
 		tagPositions = append(tagPositions, nameWithTagsBuffer.Len())
-
-		idBuffer.WriteByte(0)
-		idBuffer.WriteString(t)
 	}
 
 	m.NameWithTags = fmt.Sprintf("%s", nameWithTagsBuffer)
@@ -160,7 +158,29 @@ func (m *MetricDefinition) SetId() {
 		m.Tags[i] = m.NameWithTags[tagPositions[i*2]:tagPositions[i*2+1]]
 	}
 	m.Name = m.NameWithTags[:len(m.Name)]
-	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(idBuffer.Bytes()))
+}
+
+func (m *MetricDefinition) SetId() {
+	sort.Strings(m.Tags)
+
+	buffer := bytes.NewBufferString(m.Metric)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Unit)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Mtype)
+	buffer.WriteByte(0)
+	fmt.Fprintf(buffer, "%d", m.Interval)
+
+	for _, t := range m.Tags {
+		if len(t) >= 5 && t[:5] == "name=" {
+			continue
+		}
+
+		buffer.WriteByte(0)
+		buffer.WriteString(t)
+	}
+
+	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(buffer.Bytes()))
 }
 
 func (m *MetricDefinition) Validate() error {
@@ -209,6 +229,7 @@ func MetricDefinitionFromJSON(b []byte) (*MetricDefinition, error) {
 	if err := json.Unmarshal(b, &def); err != nil {
 		return nil, err
 	}
+	def.DeduplicateNameWithTags()
 	return def, nil
 }
 
@@ -217,7 +238,8 @@ func MetricDefinitionFromJSON(b []byte) (*MetricDefinition, error) {
 func MetricDefinitionFromMetricData(d *MetricData) *MetricDefinition {
 	tags := make([]string, len(d.Tags))
 	copy(tags, d.Tags)
-	return &MetricDefinition{
+
+	md := &MetricDefinition{
 		Id:         d.Id,
 		Name:       d.Name,
 		OrgId:      d.OrgId,
@@ -228,6 +250,9 @@ func MetricDefinitionFromMetricData(d *MetricData) *MetricDefinition {
 		Unit:       d.Unit,
 		Tags:       tags,
 	}
+	md.DeduplicateNameWithTags()
+
+	return md
 }
 
 // validateTags verifies that all the tags are of a valid format. If one or more
