@@ -54,10 +54,7 @@ func TestTagValidation(t *testing.T) {
 func newMetricDefinition(name string, tags []string) *MetricDefinition {
 	sort.Strings(tags)
 
-	m := &MetricDefinition{Name: name, Tags: tags}
-	m.DeduplicateNameWithTags()
-
-	return m
+	return &MetricDefinition{Name: name, Tags: tags}
 }
 
 func TestNameWithTags(t *testing.T) {
@@ -103,8 +100,8 @@ func TestNameWithTags(t *testing.T) {
 			t.Fatalf("Expected name %s, but got %s", tc.expectedName, tc.md.Name)
 		}
 
-		if tc.expectedNameWithTags != tc.md.NameWithTags {
-			t.Fatalf("Expected name with tags %s, but got %s", tc.expectedNameWithTags, tc.md.NameWithTags)
+		if tc.expectedNameWithTags != tc.md.NameWithTags() {
+			t.Fatalf("Expected name with tags %s, but got %s", tc.expectedNameWithTags, tc.md.NameWithTags())
 		}
 
 		if len(tc.expectedTags) != len(tc.md.Tags) {
@@ -121,7 +118,7 @@ func TestNameWithTags(t *testing.T) {
 			return uint((*reflect.StringHeader)(unsafe.Pointer(&s)).Data)
 		}
 
-		nameWithTagsAddr := getAddress(tc.md.NameWithTags)
+		nameWithTagsAddr := getAddress(tc.md.NameWithTags())
 		nameAddr := getAddress(tc.md.Name)
 		if nameAddr != nameWithTagsAddr {
 			t.Fatalf("Name slice does not appear to be slice of base string, %d != %d", nameAddr, nameWithTagsAddr)
@@ -130,7 +127,7 @@ func TestNameWithTags(t *testing.T) {
 		for i := range tc.md.Tags {
 			tagAddr := getAddress(tc.md.Tags[i])
 
-			if tagAddr < nameWithTagsAddr || tagAddr >= nameWithTagsAddr+uint(len(tc.md.NameWithTags)) {
+			if tagAddr < nameWithTagsAddr || tagAddr >= nameWithTagsAddr+uint(len(tc.md.NameWithTags())) {
 				t.Fatalf("Tag slice does not appear to be slice of base string, %d != %d", tagAddr, nameWithTagsAddr)
 			}
 		}
