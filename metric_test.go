@@ -2,6 +2,7 @@ package schema
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 	"unsafe"
 )
@@ -50,6 +51,15 @@ func TestTagValidation(t *testing.T) {
 	}
 }
 
+func newMetricDefinition(name string, tags []string) *MetricDefinition {
+	sort.Strings(tags)
+
+	m := &MetricDefinition{Name: name, Tags: tags}
+	m.DeduplicateNameWithTags()
+
+	return m
+}
+
 func TestNameWithTags(t *testing.T) {
 	type testCase struct {
 		expectedName         string
@@ -63,27 +73,27 @@ func TestNameWithTags(t *testing.T) {
 			"a.b.c",
 			"a.b.c;tag1=value1",
 			[]string{"tag1=value1"},
-			*NewMetricDefinition("a.b.c", []string{"tag1=value1", "name=ccc"}),
+			*newMetricDefinition("a.b.c", []string{"tag1=value1", "name=ccc"}),
 		}, {
 			"a.b.c",
 			"a.b.c;a=a;b=b;c=c",
 			[]string{"a=a", "b=b", "c=c"},
-			*NewMetricDefinition("a.b.c", []string{"name=a.b.c", "c=c", "b=b", "a=a"}),
+			*newMetricDefinition("a.b.c", []string{"name=a.b.c", "c=c", "b=b", "a=a"}),
 		}, {
 			"a.b.c",
 			"a.b.c",
 			[]string{},
-			*NewMetricDefinition("a.b.c", []string{"name=a.b.c"}),
+			*newMetricDefinition("a.b.c", []string{"name=a.b.c"}),
 		}, {
 			"a.b.c",
 			"a.b.c",
 			[]string{},
-			*NewMetricDefinition("a.b.c", []string{}),
+			*newMetricDefinition("a.b.c", []string{}),
 		}, {
 			"c",
 			"c;a=a;b=b;c=c",
 			[]string{"a=a", "b=b", "c=c"},
-			*NewMetricDefinition("c", []string{"c=c", "a=a", "b=b"}),
+			*newMetricDefinition("c", []string{"c=c", "a=a", "b=b"}),
 		},
 	}
 
@@ -112,7 +122,6 @@ func TestNameWithTags(t *testing.T) {
 		}
 
 		nameWithTagsAddr := getAddress(tc.md.NameWithTags)
-
 		nameAddr := getAddress(tc.md.Name)
 		if nameAddr != nameWithTagsAddr {
 			t.Fatalf("Name slice does not appear to be slice of base string, %d != %d", nameAddr, nameWithTagsAddr)

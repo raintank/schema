@@ -126,15 +126,6 @@ type MetricDefinition struct {
 	NameWithTags string   `json:"nameWithTags"`
 }
 
-func NewMetricDefinition(name string, tags []string) *MetricDefinition {
-	sort.Strings(tags)
-
-	m := &MetricDefinition{Name: name, Tags: tags}
-	m.DeduplicateNameWithTags()
-
-	return m
-}
-
 // DeduplicateNameWithTags deduplicates the name and tags strings by storing
 // their content as a single string in .NameWithTags and then makes .Name and
 // the .Tags slices of it.
@@ -152,7 +143,7 @@ func (m *MetricDefinition) DeduplicateNameWithTags() {
 		tagPositions = append(tagPositions, nameWithTagsBuffer.Len())
 	}
 
-	m.NameWithTags = fmt.Sprintf("%s", nameWithTagsBuffer)
+	m.NameWithTags = nameWithTagsBuffer.String()
 	m.Tags = make([]string, len(tagPositions)/2)
 	for i := 0; i < len(m.Tags); i++ {
 		m.Tags[i] = m.NameWithTags[tagPositions[i*2]:tagPositions[i*2+1]]
