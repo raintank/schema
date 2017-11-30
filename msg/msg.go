@@ -6,10 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/codeskyblue/go-uuid"
 	"gopkg.in/raintank/schema.v1"
 )
 
