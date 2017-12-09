@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,12 +33,28 @@ type PartitionedMetric interface {
 
 //go:generate msgp
 
+type MetricId [16]byte
+
+func (m MetricId) String() string {
+	return fmt.Sprintf("%x", m)
+}
+
+func (m MetricId) MarshalJSON() ([]byte, error) {
+	return []byte('"' + m.String() + '"'), nil
+}
+
+func (m *MetricId) UnmarshalJSON(data []byte) error {
+	dst := make([]byte, 16)
+	_, err := hex.Decode(dst, data[1:len(data)-1])
+	copy(m[:], dst[:16])
+	return err
+}
+
 // MetricData contains all metric metadata (some as fields, some as tags) and a datapoint
 type MetricData struct {
-	Id       string   `json:"id"`
+	Id       MetricId `json:"id"`
 	OrgId    int      `json:"org_id"`
 	Name     string   `json:"name"`
-	Metric   string   `json:"metric"`
 	Interval int      `json:"interval"`
 	Value    float64  `json:"value"`
 	Unit     string   `json:"unit"`
@@ -55,9 +72,6 @@ func (m *MetricData) Validate() error {
 	}
 	if m.Name == "" {
 		return errInvalidEmptyName
-	}
-	if m.Metric == "" {
-		return errInvalidEmptyMetric
 	}
 	if m.Mtype == "" || (m.Mtype != "gauge" && m.Mtype != "rate" && m.Mtype != "count" && m.Mtype != "counter" && m.Mtype != "timestamp") {
 		return errInvalidMtype
@@ -93,7 +107,8 @@ func (m *MetricData) KeyBySeries(b []byte) []byte {
 func (m *MetricData) SetId() {
 	sort.Strings(m.Tags)
 
-	buffer := bytes.NewBufferString(m.Metric)
+	buffer := bytes.NewBufferString(m.Name)
+	fmt.Fprintf(buffer, "%d", m.OrgId)
 	buffer.WriteByte(0)
 	buffer.WriteString(m.Unit)
 	buffer.WriteByte(0)
@@ -105,7 +120,7 @@ func (m *MetricData) SetId() {
 		buffer.WriteByte(0)
 		buffer.WriteString(k)
 	}
-	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(buffer.Bytes()))
+	m.Id = md5.Sum(buffer.Bytes())
 }
 
 // can be used by some encoders, such as msgp
@@ -113,13 +128,12 @@ type MetricDataArray []*MetricData
 
 // for ES
 type MetricDefinition struct {
-	Id       string `json:"id"`
-	OrgId    int    `json:"org_id"`
-	Name     string `json:"name" elastic:"type:string,index:not_analyzed"` // graphite format
-	Metric   string `json:"metric"`                                        // kairosdb format (like graphite, but not including some tags)
-	Interval int    `json:"interval"`                                      // minimum 10
-	Unit     string `json:"unit"`
-	Mtype    string `json:"mtype"`
+	Id       MetricId `json:"id"`
+	OrgId    int      `json:"org_id"`
+	Name     string   `json:"name" elastic:"type:string,index:not_analyzed"` // graphite format
+	Interval int      `json:"interval"`                                      // minimum 10
+	Unit     string   `json:"unit"`
+	Mtype    string   `json:"mtype"`
 
 	// some users of MetricDefinition (f.e. MetricTank) might add a "name" tag
 	// to this slice which allows querying by name as a tag. this special tag
@@ -173,6 +187,7 @@ func (m *MetricDefinition) SetId() {
 	sort.Strings(m.Tags)
 
 	buffer := bytes.NewBufferString(m.Metric)
+	fmt.Fprintf(buffer, "%d", m.OrgId)
 	buffer.WriteByte(0)
 	buffer.WriteString(m.Unit)
 	buffer.WriteByte(0)
@@ -189,7 +204,7 @@ func (m *MetricDefinition) SetId() {
 		buffer.WriteString(t)
 	}
 
-	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(buffer.Bytes()))
+	m.Id = md5.Sum(buffer.Bytes())
 }
 
 func (m *MetricDefinition) Validate() error {
@@ -201,9 +216,6 @@ func (m *MetricDefinition) Validate() error {
 	}
 	if m.Name == "" {
 		return errInvalidEmptyName
-	}
-	if m.Metric == "" {
-		return errInvalidEmptyMetric
 	}
 	if m.Mtype == "" || (m.Mtype != "gauge" && m.Mtype != "rate" && m.Mtype != "count" && m.Mtype != "counter" && m.Mtype != "timestamp") {
 		return errInvalidMtype
@@ -252,7 +264,6 @@ func MetricDefinitionFromMetricData(d *MetricData) *MetricDefinition {
 		Id:         d.Id,
 		Name:       d.Name,
 		OrgId:      d.OrgId,
-		Metric:     d.Metric,
 		Mtype:      d.Mtype,
 		Interval:   d.Interval,
 		LastUpdate: d.Time,
