@@ -4,60 +4,105 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
 )
 
-var errInvalidIntervalzero = errors.New("interval cannot be 0")
 var errInvalidOrgIdzero = errors.New("org-id cannot be 0")
 var errInvalidEmptyName = errors.New("name cannot be empty")
-var errInvalidEmptyMetric = errors.New("metric cannot be empty")
 var errInvalidMtype = errors.New("invalid mtype")
 var errInvalidTagFormat = errors.New("invalid tag format")
 
-type PartitionedMetric interface {
-	Validate() error
-	SetId()
-	// return a []byte key comprised of the metric's OrgId
-	// accepts an input []byte to allow callers to re-use
-	// buffers to reduce memory allocations
-	KeyByOrgId([]byte) []byte
-	// return a []byte key comprised of the metric's Name
-	// accepts an input []byte to allow callers to re-use
-	// buffers to reduce memory allocations
-	KeyBySeries([]byte) []byte
-}
+var bPool = NewBufferPool()
 
 //go:generate msgp
 
-// MetricData contains all metric metadata (some as fields, some as tags) and a datapoint
-type MetricData struct {
-	Id       string   `json:"id"`
-	OrgId    int      `json:"org_id"`
-	Name     string   `json:"name"`
-	Metric   string   `json:"metric"`
-	Interval int      `json:"interval"`
-	Value    float64  `json:"value"`
-	Unit     string   `json:"unit"`
-	Time     int64    `json:"time"`
-	Mtype    string   `json:"mtype"`
-	Tags     []string `json:"tags" elastic:"type:string,index:not_analyzed"`
+//msgp:tuple Point
+type Point struct {
+	Ts  uint32
+	Val float64
 }
 
-func (m *MetricData) Validate() error {
+func (m Point) Timestamp() uint32 {
+	return m.Ts
+}
+
+func (m Point) Value() float64 {
+	return m.Val
+}
+
+type MetricPoint struct {
+	Id string
+	Point
+}
+
+func (m *MetricPoint) GetId() string {
+	return m.Id
+}
+
+// MetricData contains all metric metadata (some as fields, some as tags) and a datapoint
+type MetricData struct {
+	MetricMetadata
+	Point
+}
+
+// can be used by some encoders, such as msgp
+type MetricDataArray []*MetricData
+
+type MetricMetadata struct {
+	Id       string `json:"id"`
+	OrgId    int    `json:"org_id"`
+	Name     string `json:"name"`     // graphite format
+	Interval int    `json:"interval"` // minimum 10
+	Unit     string `json:"unit"`
+	Mtype    string `json:"mtype"`
+
+	// some users of MetricMetadata (f.e. MetricTank) might add a "name" tag
+	// to this slice which allows querying by name as a tag. this special tag
+	// should not be stored or transmitted over the network, otherwise it may
+	// just get overwritten by the receiver.
+	Tags []string `json:"tags"`
+}
+
+func (m *MetricMetadata) Metadata() *MetricMetadata {
+	return m
+}
+
+func (m *MetricMetadata) GetId() string {
+	return m.Id
+}
+
+// returns a id (hash key) in the format OrgId.md5Sum
+// the md5sum is a hash of the the concatenation of the
+// name + each tag key:value pair (in metrics2.0 sense, so also fields), sorted alphabetically.
+func (m *MetricMetadata) SetId() {
+	b := bPool.Get()
+	sort.Strings(m.Tags)
+	buffer := bytes.NewBuffer(b)
+	buffer.WriteString(m.Name)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Unit)
+	buffer.WriteByte(0)
+	buffer.WriteString(m.Mtype)
+	buffer.WriteByte(0)
+	fmt.Fprintf(buffer, "%d", m.Interval)
+
+	for _, k := range m.Tags {
+		buffer.WriteByte(0)
+		buffer.WriteString(k)
+	}
+	b = buffer.Bytes()
+	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(b))
+	bPool.Put(b)
+}
+
+func (m *MetricMetadata) Validate() error {
 	if m.OrgId == 0 {
 		return errInvalidOrgIdzero
 	}
-	if m.Interval == 0 {
-		return errInvalidIntervalzero
-	}
 	if m.Name == "" {
 		return errInvalidEmptyName
-	}
-	if m.Metric == "" {
-		return errInvalidEmptyMetric
 	}
 	if m.Mtype == "" || (m.Mtype != "gauge" && m.Mtype != "rate" && m.Mtype != "count" && m.Mtype != "counter" && m.Mtype != "timestamp") {
 		return errInvalidMtype
@@ -68,7 +113,7 @@ func (m *MetricData) Validate() error {
 	return nil
 }
 
-func (m *MetricData) KeyByOrgId(b []byte) []byte {
+func (m *MetricMetadata) KeyByOrgId(b []byte) []byte {
 	if cap(b)-len(b) < 4 {
 		// not enough unused space in the slice so we need to grow it.
 		newBuf := make([]byte, len(b), len(b)+4)
@@ -82,52 +127,16 @@ func (m *MetricData) KeyByOrgId(b []byte) []byte {
 	return b
 }
 
-func (m *MetricData) KeyBySeries(b []byte) []byte {
+func (m *MetricMetadata) KeyBySeries(b []byte) []byte {
 	b = append(b, []byte(m.Name)...)
 	return b
 }
 
-// returns a id (hash key) in the format OrgId.md5Sum
-// the md5sum is a hash of the the concatination of the
-// metric + each tag key:value pair (in metrics2.0 sense, so also fields), sorted alphabetically.
-func (m *MetricData) SetId() {
-	sort.Strings(m.Tags)
-
-	buffer := bytes.NewBufferString(m.Metric)
-	buffer.WriteByte(0)
-	buffer.WriteString(m.Unit)
-	buffer.WriteByte(0)
-	buffer.WriteString(m.Mtype)
-	buffer.WriteByte(0)
-	fmt.Fprintf(buffer, "%d", m.Interval)
-
-	for _, k := range m.Tags {
-		buffer.WriteByte(0)
-		buffer.WriteString(k)
-	}
-	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(buffer.Bytes()))
-}
-
-// can be used by some encoders, such as msgp
-type MetricDataArray []*MetricData
-
-// for ES
+// For the metricIndex
 type MetricDefinition struct {
-	Id       string `json:"id"`
-	OrgId    int    `json:"org_id"`
-	Name     string `json:"name" elastic:"type:string,index:not_analyzed"` // graphite format
-	Metric   string `json:"metric"`                                        // kairosdb format (like graphite, but not including some tags)
-	Interval int    `json:"interval"`                                      // minimum 10
-	Unit     string `json:"unit"`
-	Mtype    string `json:"mtype"`
-
-	// some users of MetricDefinition (f.e. MetricTank) might add a "name" tag
-	// to this slice which allows querying by name as a tag. this special tag
-	// should not be stored or transmitted over the network, otherwise it may
-	// just get overwritten by the receiver.
-	Tags       []string `json:"tags" elastic:"type:string,index:not_analyzed"`
-	LastUpdate int64    `json:"lastUpdate"` // unix timestamp
-	Partition  int32    `json:"partition"`
+	MetricMetadata
+	LastUpdate int64 `json:"lastUpdate"` // unix timestamp
+	Partition  int32 `json:"partition"`
 
 	// this is a special attribute that does not need to be set, it is only used
 	// to keep the state of NameWithTags()
@@ -167,100 +176,6 @@ func (m *MetricDefinition) NameWithTags() string {
 	m.Name = m.nameWithTags[:len(m.Name)]
 
 	return m.nameWithTags
-}
-
-func (m *MetricDefinition) SetId() {
-	sort.Strings(m.Tags)
-
-	buffer := bytes.NewBufferString(m.Metric)
-	buffer.WriteByte(0)
-	buffer.WriteString(m.Unit)
-	buffer.WriteByte(0)
-	buffer.WriteString(m.Mtype)
-	buffer.WriteByte(0)
-	fmt.Fprintf(buffer, "%d", m.Interval)
-
-	for _, t := range m.Tags {
-		if len(t) >= 5 && t[:5] == "name=" {
-			continue
-		}
-
-		buffer.WriteByte(0)
-		buffer.WriteString(t)
-	}
-
-	m.Id = fmt.Sprintf("%d.%x", m.OrgId, md5.Sum(buffer.Bytes()))
-}
-
-func (m *MetricDefinition) Validate() error {
-	if m.OrgId == 0 {
-		return errInvalidOrgIdzero
-	}
-	if m.Interval == 0 {
-		return errInvalidIntervalzero
-	}
-	if m.Name == "" {
-		return errInvalidEmptyName
-	}
-	if m.Metric == "" {
-		return errInvalidEmptyMetric
-	}
-	if m.Mtype == "" || (m.Mtype != "gauge" && m.Mtype != "rate" && m.Mtype != "count" && m.Mtype != "counter" && m.Mtype != "timestamp") {
-		return errInvalidMtype
-	}
-	if !ValidateTags(m.Tags) {
-		return errInvalidTagFormat
-	}
-	return nil
-}
-
-func (m *MetricDefinition) KeyByOrgId(b []byte) []byte {
-	if cap(b)-len(b) < 4 {
-		// not enough unused space in the slice so we need to grow it.
-		newBuf := make([]byte, len(b), len(b)+4)
-		copy(newBuf, b)
-		b = newBuf
-	}
-	// PutUint32 writes directly to the slice rather then appending.
-	// so we need to set the length to 4 more bytes then it currently is.
-	b = b[:len(b)+4]
-	binary.LittleEndian.PutUint32(b[len(b)-4:], uint32(m.OrgId))
-	return b
-}
-
-func (m *MetricDefinition) KeyBySeries(b []byte) []byte {
-	b = append(b, []byte(m.Name)...)
-	return b
-}
-
-func MetricDefinitionFromJSON(b []byte) (*MetricDefinition, error) {
-	def := new(MetricDefinition)
-	if err := json.Unmarshal(b, &def); err != nil {
-		return nil, err
-	}
-
-	return def, nil
-}
-
-// MetricDefinitionFromMetricData yields a MetricDefinition that has no references
-// to the original MetricData
-func MetricDefinitionFromMetricData(d *MetricData) *MetricDefinition {
-	tags := make([]string, len(d.Tags))
-	copy(tags, d.Tags)
-
-	md := &MetricDefinition{
-		Id:         d.Id,
-		Name:       d.Name,
-		OrgId:      d.OrgId,
-		Metric:     d.Metric,
-		Mtype:      d.Mtype,
-		Interval:   d.Interval,
-		LastUpdate: d.Time,
-		Unit:       d.Unit,
-		Tags:       tags,
-	}
-
-	return md
 }
 
 // ValidateTags returns whether all tags are in a valid format.

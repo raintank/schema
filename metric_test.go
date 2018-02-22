@@ -9,15 +9,18 @@ import (
 
 func BenchmarkSetId(b *testing.B) {
 	metric := MetricData{
-		OrgId:    1234,
-		Name:     "key1=val1.key2=val2.my.test.metric.name",
-		Metric:   "my.test.metric.name",
-		Interval: 15,
-		Value:    0.1234,
-		Unit:     "ms",
-		Time:     1234567890,
-		Mtype:    "gauge",
-		Tags:     []string{"key1:val1", "key2:val2"},
+		MetricMetadata: MetricMetadata{
+			OrgId:    1234,
+			Name:     "key1=val1.key2=val2.my.test.metric.name",
+			Interval: 15,
+			Unit:     "gauge",
+			Mtype:    "ms",
+			Tags:     []string{"key1=val1", "key2=val2"},
+		},
+		Point: Point{
+			Val: 0.1234,
+			Ts:  1234567890,
+		},
 	}
 	for i := 0; i < b.N; i++ {
 		metric.SetId()
@@ -45,7 +48,7 @@ func TestTagValidation(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		if tc.expecting != validateTags(tc.tag) {
+		if tc.expecting != ValidateTags(tc.tag) {
 			t.Fatalf("Expected %t, but testcase %s returned %t", tc.expecting, tc.tag, !tc.expecting)
 		}
 	}
@@ -54,7 +57,7 @@ func TestTagValidation(t *testing.T) {
 func newMetricDefinition(name string, tags []string) *MetricDefinition {
 	sort.Strings(tags)
 
-	return &MetricDefinition{Name: name, Tags: tags}
+	return &MetricDefinition{MetricMetadata: MetricMetadata{Name: name, Tags: tags}}
 }
 
 func TestNameWithTags(t *testing.T) {

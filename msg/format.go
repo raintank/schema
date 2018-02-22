@@ -4,8 +4,17 @@ package msg
 
 type Format uint8
 
-// identifier of message format
+// identifier of message format when ingesting over HTTP
 const (
-	FormatMetricDataArrayJson Format = iota
+	FormatMetricDataV1ArrayJson Format = iota
+	FormatMetricDataV1ArrayMsgp
+
+	FormatMetricDataArrayJson
 	FormatMetricDataArrayMsgp
+)
+
+// identifier of message format when ingesting over Kafka
+const (
+	FormatMetricData Format = iota
+	FormatMetricPoint
 )

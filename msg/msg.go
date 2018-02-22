@@ -6,69 +6,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
-	"gopkg.in/raintank/schema.v1"
+	schemaV1 "gopkg.in/raintank/schema.v1"
+	schema "gopkg.in/raintank/schema.v2"
 )
 
 var errTooSmall = errors.New("too small")
 var errFmtBinWriteFailed = "binary write failed: %q"
 var errFmtUnknownFormat = "unknown format %d"
 
-type MetricData struct {
-	Id       int64
-	Metrics  []*schema.MetricData
-	Produced time.Time
-	Format   Format
-	Msg      []byte
-}
-
-// parses format and id (cheap), but doesn't decode metrics (expensive) just yet.
-func (m *MetricData) InitFromMsg(msg []byte) error {
-	if len(msg) < 9 {
-		return errTooSmall
-	}
-	m.Msg = msg
-
-	buf := bytes.NewReader(msg[1:9])
-	binary.Read(buf, binary.BigEndian, &m.Id)
-	m.Produced = time.Unix(0, m.Id)
-
-	m.Format = Format(msg[0])
-	if m.Format != FormatMetricDataArrayJson && m.Format != FormatMetricDataArrayMsgp {
-		return fmt.Errorf(errFmtUnknownFormat, m.Format)
-	}
-	return nil
-}
-
-// sets m.Metrics to a []*schema.MetricData
-// any subsequent call may however put different MetricData into our m.Metrics array
-func (m *MetricData) DecodeMetricData() error {
-	var err error
-	switch m.Format {
-	case FormatMetricDataArrayJson:
-		err = json.Unmarshal(m.Msg[9:], &m.Metrics)
-	case FormatMetricDataArrayMsgp:
-		out := schema.MetricDataArray(m.Metrics)
-		_, err = out.UnmarshalMsg(m.Msg[9:])
-		m.Metrics = []*schema.MetricData(out)
-	default:
-		return fmt.Errorf("unrecognized format %d", m.Msg[0])
-	}
-	if err != nil {
-		return fmt.Errorf("ERROR: failure to unmarshal message body via format %q: %s", m.Format, err)
-	}
-	m.Msg = nil // no more need for the original input
-	return nil
-}
-
-func CreateMsg(metrics []*schema.MetricData, id int64, version Format) ([]byte, error) {
+func EncodeMetricDataArray(metrics []*schema.MetricData, version Format) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, binary.LittleEndian, uint8(version))
-	if err != nil {
-		return nil, fmt.Errorf(errFmtBinWriteFailed, err)
-	}
-	err = binary.Write(buf, binary.BigEndian, id)
 	if err != nil {
 		return nil, fmt.Errorf(errFmtBinWriteFailed, err)
 	}
@@ -90,4 +39,160 @@ func CreateMsg(metrics []*schema.MetricData, id int64, version Format) ([]byte, 
 		return nil, fmt.Errorf(errFmtBinWriteFailed, err)
 	}
 	return buf.Bytes(), nil
+}
+
+func DecodeMetricDataArray(b []byte) ([]*schema.MetricData, error) {
+	// We need at least the format field.
+	if len(b) < 1 {
+		return nil, errTooSmall
+	}
+	metrics := make([]*schema.MetricData, 0)
+	format := Format(b[0])
+	switch format {
+	case FormatMetricDataArrayJson:
+		err := json.Unmarshal(b[1:], &metrics)
+		if err != nil {
+			return nil, fmt.Errorf("ERROR: failure to unmarshal message body via format %q: %s", format, err)
+		}
+	case FormatMetricDataArrayMsgp:
+		out := schema.MetricDataArray(metrics)
+		_, err := out.UnmarshalMsg(b[1:])
+		if err != nil {
+			return nil, fmt.Errorf("ERROR: failure to unmarshal message body via format %q: %s", format, err)
+		}
+		metrics = []*schema.MetricData(out)
+	case FormatMetricDataV1ArrayJson:
+		// format + ID field is 9bytes.
+		if len(b) < 9 {
+			return nil, errTooSmall
+		}
+		oldMetrics := make([]*schemaV1.MetricData, 0)
+		err := json.Unmarshal(b[9:], &oldMetrics)
+		if err != nil {
+			return nil, fmt.Errorf("ERROR: failure to unmarshal message body via format %q: %s", format, err)
+		}
+		metrics = make([]*schema.MetricData, len(oldMetrics))
+		for i, om := range oldMetrics {
+			metrics[i] = &schema.MetricData{
+				MetricMetadata: schema.MetricMetadata{
+					Id:    om.Id,
+					OrgId: om.OrgId,
+					Name:  om.Name,
+					Unit:  om.Unit,
+					Mtype: om.Mtype,
+					Tags:  om.Tags,
+				},
+				Point: schema.Point{
+					Ts:  uint32(om.Time),
+					Val: om.Value,
+				},
+			}
+		}
+	case FormatMetricDataV1ArrayMsgp:
+		// format + ID field is 9bytes.
+		if len(b) < 9 {
+			return nil, errTooSmall
+		}
+		oldMetrics := make([]*schemaV1.MetricData, 0)
+		out := schemaV1.MetricDataArray(oldMetrics)
+		_, err := out.UnmarshalMsg(b[9:])
+		if err != nil {
+			return nil, fmt.Errorf("ERROR: failure to unmarshal message body via format %q: %s", format, err)
+		}
+		oldMetrics = []*schemaV1.MetricData(out)
+		for i, om := range oldMetrics {
+			metrics[i] = &schema.MetricData{
+				MetricMetadata: schema.MetricMetadata{
+					Id:    om.Id,
+					OrgId: om.OrgId,
+					Name:  om.Name,
+					Unit:  om.Unit,
+					Mtype: om.Mtype,
+					Tags:  om.Tags,
+				},
+				Point: schema.Point{
+					Ts:  uint32(om.Time),
+					Val: om.Value,
+				},
+			}
+		}
+	default:
+		return nil, fmt.Errorf(errFmtUnknownFormat, format)
+	}
+	return metrics, nil
+}
+
+// Marshal a DataPoint to byte stream
+func EncodeDataPoint(p schema.DataPoint, b []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(b)
+	switch p.(type) {
+	case *schema.MetricData:
+		err := binary.Write(buf, binary.LittleEndian, uint8(FormatMetricData))
+		if err != nil {
+			return nil, fmt.Errorf(errFmtBinWriteFailed, err)
+		}
+		msg, err := p.(*schema.MetricData).MarshalMsg(nil)
+		if err != nil {
+			return nil, fmt.Errorf(errFmtBinWriteFailed, err)
+		}
+		buf.Write(msg)
+	case *schema.MetricPoint:
+		err := binary.Write(buf, binary.LittleEndian, uint8(FormatMetricPoint))
+		if err != nil {
+			return nil, fmt.Errorf(errFmtBinWriteFailed, err)
+		}
+		msg, err := p.(*schema.MetricPoint).MarshalMsg(nil)
+		if err != nil {
+			return nil, fmt.Errorf(errFmtBinWriteFailed, err)
+		}
+		buf.Write(msg)
+	default:
+		return nil, fmt.Errorf("unknown DataPoint type")
+	}
+
+	return buf.Bytes(), nil
+}
+
+func DecodeDataPoint(b []byte) (schema.DataPoint, error) {
+	switch Format(b[0]) {
+	case FormatMetricPoint:
+		p := new(schema.MetricPoint)
+		_, err := p.UnmarshalMsg(b[1:])
+		if err != nil {
+			return nil, err
+		}
+		return p, nil
+	case FormatMetricData:
+		p := new(schema.MetricData)
+		_, err := p.UnmarshalMsg(b[1:])
+		if err != nil {
+			return nil, err
+		}
+		return p, nil
+	default:
+		// if format is not known, we have to assume that this is an old MetricData message with no version byte
+		om := schemaV1.MetricData{}
+		_, err := om.UnmarshalMsg(b)
+		if err != nil {
+			return nil, err
+		}
+		p := &schema.MetricData{
+			MetricMetadata: schema.MetricMetadata{
+				Id:    om.Id,
+				OrgId: om.OrgId,
+				Name:  om.Name,
+				Unit:  om.Unit,
+				Mtype: om.Mtype,
+				Tags:  om.Tags,
+			},
+			Point: schema.Point{
+				Ts:  uint32(om.Time),
+				Val: om.Value,
+			},
+		}
+		return p, nil
+	}
+
+	// this will never be reached
+	return nil, fmt.Errorf(errFmtUnknownFormat, Format(b[0]))
 }

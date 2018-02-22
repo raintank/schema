@@ -32,7 +32,7 @@ func TestReslice(t *testing.T) {
 	for _, c := range cases {
 		in := make([]*MetricData, c.inSize)
 		for i := 0; i < c.inSize; i++ {
-			in[i] = &MetricData{OrgId: i}
+			in[i] = &MetricData{MetricMetadata: MetricMetadata{OrgId: i}}
 		}
 		out := Reslice(in, c.subSize)
 		expectedLen := len(in) / c.subSize
