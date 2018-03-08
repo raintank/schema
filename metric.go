@@ -229,7 +229,7 @@ func (m *MetricDefinition) KeyByOrgId(b []byte) []byte {
 }
 
 func (m *MetricDefinition) KeyBySeries(b []byte) []byte {
-	b = append(b, []byte(m.Name)...)
+	b = append(b, []byte(m.NameWithTags())...)
 	return b
 }
 
