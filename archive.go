@@ -10,14 +10,14 @@ import (
 // Archive represents a metric archive
 // the zero value represents a raw metric
 // any non-zero value represents a certain
-// aggregation method (lower 4 bits) and
-// aggregation span (higher 4 bits)
-type Archive uint8
+// aggregation method (lower 8 bits) and
+// aggregation span (higher 8 bits)
+type Archive uint16
 
 // important: caller must make sure to call IsSpanValid first
 func NewArchive(method Method, span uint32) Archive {
-	code := spanHumanToCode[span]
-	return Archive(uint8(method) | code<<4)
+	code := uint16(spanHumanToCode[span])
+	return Archive(uint16(method) | code<<8)
 }
 
 // String returns the traditional key suffix like sum_600 etc
@@ -31,7 +31,7 @@ func (a Archive) Method() Method {
 }
 
 func (a Archive) Span() uint32 {
-	return spanCodeToHuman[uint8(a>>4)]
+	return spanCodeToHuman[uint8(a>>8)]
 }
 
 func IsSpanValid(span uint32) bool {
@@ -76,7 +76,7 @@ var spanCodeToHuman map[uint8]uint32
 
 func init() {
 	// all the aggregation spans we support, their index position in this slice is their code
-	spans := []uint32{2, 5, 10, 15, 30, 60, 90, 120, 150, 300, 600, 900, 1200, 1800, 45 * 60, 3600, 3600 + 30*60, 2 * 3600, 3 * 3600, 4 * 3600, 5 * 3600, 6 * 3600}
+	spans := []uint32{2, 5, 10, 15, 30, 60, 90, 120, 150, 300, 600, 900, 1200, 1800, 45 * 60, 3600, 3600 + 30*60, 2 * 3600, 3 * 3600, 4 * 3600, 5 * 3600, 6 * 3600, 8 * 3600, 12 * 3600, 24 * 3600}
 
 	spanHumanToCode = make(map[uint32]uint8)
 	spanCodeToHuman = make(map[uint8]uint32)
