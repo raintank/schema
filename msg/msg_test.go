@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	schema "gopkg.in/raintank/schema.v1"
+	"github.com/raintank/schema"
 )
 
 func TestWriteReadPointMsg(t *testing.T) {
