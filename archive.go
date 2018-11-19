@@ -31,6 +31,9 @@ func (a Archive) Method() Method {
 }
 
 func (a Archive) Span() uint32 {
+	if a == 0 {
+		return 0
+	}
 	return spanCodeToHuman[uint8(a>>8)]
 }
 
