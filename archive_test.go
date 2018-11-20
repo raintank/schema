@@ -1,6 +1,20 @@
 package schema
 
-import "testing"
+import (
+	"testing"
+)
+
+func TestZeroArchive(t *testing.T) {
+	var arch Archive // zero value
+	method := arch.Method()
+	if method != 0 {
+		t.Fatalf("expected method 0, got %v", method)
+	}
+	span := arch.Span()
+	if span != 0 {
+		t.Fatalf("expected span 0, got %v", span)
+	}
+}
 
 func TestArchive(t *testing.T) {
 	type c struct {
