@@ -2,7 +2,9 @@ package schema
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
+	"strings"
 )
 
 //go:generate stringer -type=Method -linecomment
@@ -18,6 +20,26 @@ type Archive uint16
 func NewArchive(method Method, span uint32) Archive {
 	code := uint16(spanHumanToCode[span])
 	return Archive(uint16(method) | code<<8)
+}
+
+func ArchiveFromString(s string) (Archive, error) {
+	pos := strings.Index(s, "_")
+	if pos == -1 {
+		return 0, ErrInvalidFormat
+	}
+
+	method, err := MethodFromString(s[:pos])
+	if err != nil {
+		return 0, err
+	}
+	span, err := strconv.ParseInt(s[pos+1:], 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	if !IsSpanValid(uint32(span)) {
+		return 0, fmt.Errorf("invalid span %d", span)
+	}
+	return NewArchive(method, uint32(span)), nil
 }
 
 // String returns the traditional key suffix like sum_600 etc

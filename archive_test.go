@@ -52,3 +52,33 @@ func TestArchive(t *testing.T) {
 		}
 	}
 }
+
+func TestArchiveFromString(t *testing.T) {
+	cases := []struct {
+		str        string
+		expErr     bool
+		expArchive Archive
+	}{
+		{"_deeff", true, 0},
+		{"_foo_bar_", true, 0},
+		{"_sum_1800", true, 0},
+		{"_SUM_1800", true, 0},
+		{"sum_1800", false, NewArchive(Sum, 1800)},
+		{"sum_1801", true, 0},
+		{"SUM_1800", true, 0},
+		{"min_600", false, NewArchive(Min, 600)},
+	}
+
+	for i, c := range cases {
+		archive, err := ArchiveFromString(c.str)
+		if (err != nil) != c.expErr {
+			t.Fatalf("case %d exp err %v got %v", i, c.expErr, err)
+		}
+		if err != nil {
+			continue
+		}
+		if archive != c.expArchive {
+			t.Fatalf("case %d exp Archive %v got %v", i, c.expArchive, archive)
+		}
+	}
+}
