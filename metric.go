@@ -26,10 +26,6 @@ type PartitionedMetric interface {
 	// accepts an input []byte to allow callers to re-use
 	// buffers to reduce memory allocations
 	KeyBySeries([]byte) []byte
-	// return a []byte key comprised of the metric's Name with Tags
-	// accepts an input []byte to allow callers to re-use
-	// buffers to reduce memory allocations
-	KeyBySeriesWithTags([]byte) []byte
 }
 
 //go:generate msgp
@@ -83,23 +79,6 @@ func (m *MetricData) KeyByOrgId(b []byte) []byte {
 func (m *MetricData) KeyBySeries(b []byte) []byte {
 	b = append(b, []byte(m.Name)...)
 	return b
-}
-
-func (m *MetricData) KeyBySeriesWithTags(b []byte) []byte {
-	nameWithTagsBuffer := bytes.NewBuffer(b[:0])
-	nameWithTagsBuffer.WriteString(m.Name)
-
-	sort.Strings(m.Tags)
-	for _, t := range m.Tags {
-		if len(t) >= 5 && t[:5] == "name=" {
-			continue
-		}
-
-		nameWithTagsBuffer.WriteString(";")
-		nameWithTagsBuffer.WriteString(t)
-	}
-
-	return nameWithTagsBuffer.Bytes()
 }
 
 // returns a id (hash key) in the format OrgId.md5Sum
@@ -178,6 +157,7 @@ func (m *MetricDefinition) NameWithTags() string {
 		m.Tags[i] = m.nameWithTags[tagPositions[i*2]:tagPositions[i*2+1]]
 	}
 	m.Name = m.nameWithTags[:len(m.Name)]
+
 	return m.nameWithTags
 }
 
@@ -243,10 +223,6 @@ func (m *MetricDefinition) KeyByOrgId(b []byte) []byte {
 func (m *MetricDefinition) KeyBySeries(b []byte) []byte {
 	b = append(b, []byte(m.Name)...)
 	return b
-}
-
-func (m *MetricDefinition) KeyBySeriesWithTags(b []byte) []byte {
-	return []byte(m.NameWithTags())
 }
 
 // MetricDefinitionFromMetricData yields a MetricDefinition that has no references
