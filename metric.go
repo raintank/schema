@@ -3,7 +3,6 @@ package schema
 import (
 	"bytes"
 	"crypto/md5"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"sort"
@@ -15,18 +14,14 @@ var ErrInvalidOrgIdzero = errors.New("org-id cannot be 0")
 var ErrInvalidEmptyName = errors.New("name cannot be empty")
 var ErrInvalidMtype = errors.New("invalid mtype")
 var ErrInvalidTagFormat = errors.New("invalid tag format")
+var ErrUnknownPartitionMethod = errors.New("unknown partition method")
 
 type PartitionedMetric interface {
 	Validate() error
 	SetId()
-	// return a []byte key comprised of the metric's OrgId
-	// accepts an input []byte to allow callers to re-use
-	// buffers to reduce memory allocations
-	KeyByOrgId([]byte) []byte
-	// return a []byte key comprised of the metric's Name
-	// accepts an input []byte to allow callers to re-use
-	// buffers to reduce memory allocations
-	KeyBySeries([]byte) []byte
+	// using the provided partitionByMethod, and number of partitions being used
+	// generate and return the partition id that should be used with this metric.
+	PartitionID(method PartitionByMethod, partitions int32) (int32, error)
 }
 
 //go:generate msgp
@@ -61,25 +56,6 @@ func (m *MetricData) Validate() error {
 		return ErrInvalidTagFormat
 	}
 	return nil
-}
-
-func (m *MetricData) KeyByOrgId(b []byte) []byte {
-	if cap(b)-len(b) < 4 {
-		// not enough unused space in the slice so we need to grow it.
-		newBuf := make([]byte, len(b), len(b)+4)
-		copy(newBuf, b)
-		b = newBuf
-	}
-	// PutUint32 writes directly to the slice rather then appending.
-	// so we need to set the length to 4 more bytes then it currently is.
-	b = b[:len(b)+4]
-	binary.LittleEndian.PutUint32(b[len(b)-4:], uint32(m.OrgId))
-	return b
-}
-
-func (m *MetricData) KeyBySeries(b []byte) []byte {
-	b = append(b, []byte(m.Name)...)
-	return b
 }
 
 // returns a id (hash key) in the format OrgId.md5Sum
@@ -209,25 +185,6 @@ func (m *MetricDefinition) Validate() error {
 		return ErrInvalidTagFormat
 	}
 	return nil
-}
-
-func (m *MetricDefinition) KeyByOrgId(b []byte) []byte {
-	if cap(b)-len(b) < 4 {
-		// not enough unused space in the slice so we need to grow it.
-		newBuf := make([]byte, len(b), len(b)+4)
-		copy(newBuf, b)
-		b = newBuf
-	}
-	// PutUint32 writes directly to the slice rather then appending.
-	// so we need to set the length to 4 more bytes then it currently is.
-	b = b[:len(b)+4]
-	binary.LittleEndian.PutUint32(b[len(b)-4:], uint32(m.OrgId))
-	return b
-}
-
-func (m *MetricDefinition) KeyBySeries(b []byte) []byte {
-	b = append(b, []byte(m.Name)...)
-	return b
 }
 
 // MetricDefinitionFromMetricData yields a MetricDefinition that has no references
