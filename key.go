@@ -14,8 +14,13 @@ import (
 //msgp:ignore AMKey
 // don't ignore Key, MKey because it's used for MetricDefinition
 
+// A random number that does not conflict with any of the msgp internal
+// types, and which is also not the first one after the msgp internal types
+// to avoid accidental conflicts with other custom types
+const msgpExtensionId = 97
+
 func init() {
-	msgp.RegisterExtension(97, func() msgp.Extension { return new(AMKey) })
+	msgp.RegisterExtension(msgpExtensionId, func() msgp.Extension { return new(AMKey) })
 }
 
 var ErrStringTooShort = errors.New("string too short")
@@ -74,10 +79,7 @@ type AMKey struct {
 
 // ExtensionType is part of the msgp.Extension interface
 func (a *AMKey) ExtensionType() int8 {
-	// A random number that does not conflict with any of the msgp internal
-	// types, and which is also not the first one after the msgp internal types
-	// to avoid accidental conflicts with other custom types
-	return 97
+	return msgpExtensionId
 }
 
 // Len is part of the msgp.Extension interface
