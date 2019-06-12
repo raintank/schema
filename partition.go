@@ -3,7 +3,6 @@ package schema
 import (
 	"encoding/binary"
 	"hash/fnv"
-	"sort"
 
 	"github.com/cespare/xxhash"
 	jump "github.com/dgryski/go-jump"
@@ -41,28 +40,14 @@ func (m *MetricData) PartitionID(method PartitionByMethod, partitions int32) (in
 		}
 	case PartitionBySeriesWithTags:
 		h := xxhash.New()
-		h.WriteString(m.Name)
-		sort.Strings(m.Tags)
-		for _, t := range m.Tags {
-			if len(t) >= 5 && t[:5] == "name=" {
-				continue
-			}
-
-			h.WriteString(";")
-			h.WriteString(t)
+		if err := writeSortedTagString(h, m.Name, m.Tags); err != nil {
+			return 0, err
 		}
 		partition = jump.Hash(h.Sum64(), int(partitions))
 	case PartitionBySeriesWithTagsFnv:
 		h := fnv.New32a()
-		h.Write([]byte(m.Name))
-		sort.Strings(m.Tags)
-		for _, t := range m.Tags {
-			if len(t) >= 5 && t[:5] == "name=" {
-				continue
-			}
-
-			h.Write([]byte(";"))
-			h.Write([]byte(t))
+		if err := writeSortedTagString(h, m.Name, m.Tags); err != nil {
+			return 0, err
 		}
 		partition = int32(h.Sum32()) % partitions
 		if partition < 0 {
@@ -101,15 +86,8 @@ func (m *MetricDefinition) PartitionID(method PartitionByMethod, partitions int3
 		if len(m.nameWithTags) > 0 {
 			h.WriteString(m.nameWithTags)
 		} else {
-			h.WriteString(m.Name)
-			sort.Strings(m.Tags)
-			for _, t := range m.Tags {
-				if len(t) >= 5 && t[:5] == "name=" {
-					continue
-				}
-
-				h.WriteString(";")
-				h.WriteString(t)
+			if err := writeSortedTagString(h, m.Name, m.Tags); err != nil {
+				return 0, err
 			}
 		}
 		partition = jump.Hash(h.Sum64(), int(partitions))
@@ -118,15 +96,8 @@ func (m *MetricDefinition) PartitionID(method PartitionByMethod, partitions int3
 		if len(m.nameWithTags) > 0 {
 			h.Write([]byte(m.nameWithTags))
 		} else {
-			h.Write([]byte(m.Name))
-			sort.Strings(m.Tags)
-			for _, t := range m.Tags {
-				if len(t) >= 5 && t[:5] == "name=" {
-					continue
-				}
-
-				h.Write([]byte(";"))
-				h.Write([]byte(t))
+			if err := writeSortedTagString(h, m.Name, m.Tags); err != nil {
+				return 0, err
 			}
 		}
 		partition = int32(h.Sum32()) % partitions

@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 )
@@ -100,7 +101,7 @@ type MetricDefinition struct {
 
 	// this is a special attribute that does not need to be set, it is only used
 	// to keep the state of NameWithTags()
-	nameWithTags string `json:"-"`
+	nameWithTags string
 }
 
 // NameWithTags deduplicates the name and tags strings by storing their content
@@ -113,27 +114,26 @@ func (m *MetricDefinition) NameWithTags() string {
 		return m.nameWithTags
 	}
 
-	sort.Strings(m.Tags)
+	nameWithTagsBuffer := &bytes.Buffer{}
+	writeSortedTagString(nameWithTagsBuffer, m.Name, m.Tags)
+	m.nameWithTags = nameWithTagsBuffer.String()
 
-	nameWithTagsBuffer := bytes.NewBufferString(m.Name)
-	tagPositions := make([]int, 0, len(m.Tags)*2)
+	var i int
+	cursor := len(m.Name)
+	m.Name = m.nameWithTags[:cursor]
 	for _, t := range m.Tags {
-		if len(t) >= 5 && t[:5] == "name=" {
+		if len(t) > 5 && t[:5] == "name=" {
 			continue
 		}
-
-		nameWithTagsBuffer.WriteString(";")
-		tagPositions = append(tagPositions, nameWithTagsBuffer.Len())
-		nameWithTagsBuffer.WriteString(t)
-		tagPositions = append(tagPositions, nameWithTagsBuffer.Len())
+		m.Tags[i] = m.nameWithTags[cursor+1 : cursor+1+len(t)]
+		cursor += len(t) + 1
+		i++
 	}
 
-	m.nameWithTags = nameWithTagsBuffer.String()
-	m.Tags = make([]string, len(tagPositions)/2)
-	for i := 0; i < len(m.Tags); i++ {
-		m.Tags[i] = m.nameWithTags[tagPositions[i*2]:tagPositions[i*2+1]]
+	// if a "name" tag existed, then we might have to shorten the slice
+	if i < len(m.Tags) {
+		m.Tags = m.Tags[:i]
 	}
-	m.Name = m.nameWithTags[:len(m.Name)]
 
 	return m.nameWithTags
 }
@@ -283,4 +283,31 @@ func ValidateTagValue(value string) bool {
 	}
 
 	return !strings.ContainsRune(value, ';')
+}
+
+func writeSortedTagString(w io.Writer, name string, tags []string) error {
+	sort.Strings(tags)
+
+	_, err := io.WriteString(w, name)
+	if err != nil {
+		return err
+	}
+
+	for _, t := range tags {
+		if len(t) >= 5 && t[:5] == "name=" {
+			continue
+		}
+
+		_, err = io.WriteString(w, ";")
+		if err != nil {
+			return err
+		}
+
+		_, err = io.WriteString(w, t)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
