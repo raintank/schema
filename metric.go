@@ -154,7 +154,7 @@ func (m *MetricDefinition) SetId() {
 	fmt.Fprintf(buffer, "%d", m.Interval)
 
 	for _, t := range m.Tags {
-		if len(t) >= 5 && t[:5] == "name=" {
+		if len(t) > 5 && t[:5] == "name=" {
 			continue
 		}
 
@@ -294,7 +294,7 @@ func writeSortedTagString(w io.Writer, name string, tags []string) error {
 	}
 
 	for _, t := range tags {
-		if len(t) >= 5 && t[:5] == "name=" {
+		if len(t) > 5 && t[:5] == "name=" {
 			continue
 		}
 
