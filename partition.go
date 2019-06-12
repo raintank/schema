@@ -11,9 +11,16 @@ import (
 type PartitionByMethod uint8
 
 const (
+	// partition by organization, ignoring all other properties
 	PartitionByOrg PartitionByMethod = iota
+
+	// partition by the metric name, without taking the tags into account
 	PartitionBySeries
+
+	// the recommended partitioning scheme to be used whenever possible, because it results in a good distribution
 	PartitionBySeriesWithTags
+
+	// kept for backwards compatibility, but not recommended
 	PartitionBySeriesWithTagsFnv
 )
 
