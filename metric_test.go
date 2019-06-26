@@ -132,3 +132,38 @@ func TestNameWithTags(t *testing.T) {
 		}
 	}
 }
+
+func TestNameSanitizedAsTagValue(t *testing.T) {
+	type testCase struct {
+		originalName string
+		expectedName string
+	}
+	cases := []testCase{
+		{
+			originalName: "my~.test.abc",
+			expectedName: "my.test.abc",
+		}, {
+			originalName: "a.b.c",
+			expectedName: "a.b.c",
+		}, {
+			originalName: "~~a~~.~~~b~~~.~~~c~~~",
+			expectedName: "a.b.c",
+		}, {
+			originalName: "a.b.c~",
+			expectedName: "a.b.c",
+		}, {
+			originalName: "~a.b.c",
+			expectedName: "a.b.c",
+		}, {
+			originalName: "~a~",
+			expectedName: "a",
+		},
+	}
+	for i := range cases {
+		md := MetricDefinition{Name: cases[i].originalName}
+		sanitized := md.NameSanitizedAsTagValue()
+		if sanitized != cases[i].expectedName {
+			t.Fatalf("TC %d: Expected sanitized version of %s to be %s, but it was %s", i, md.Name, cases[i].expectedName, sanitized)
+		}
+	}
+}

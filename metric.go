@@ -166,6 +166,22 @@ func (m *MetricDefinition) NameWithTags() string {
 	return m.nameWithTags
 }
 
+func (m *MetricDefinition) NameSanitizedAsTagValue() string {
+	if !strings.Contains(m.Name, "~") {
+		return m.Name
+	}
+
+	sanitized := []byte(m.Name)
+	for i := 0; i < len(sanitized); i++ {
+		if sanitized[i] == '~' {
+			sanitized = append(sanitized[:i], sanitized[i+1:]...)
+			i--
+		}
+	}
+
+	return string(sanitized)
+}
+
 func (m *MetricDefinition) SetId() {
 	sort.Strings(m.Tags)
 
