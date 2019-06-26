@@ -167,19 +167,7 @@ func (m *MetricDefinition) NameWithTags() string {
 }
 
 func (m *MetricDefinition) NameSanitizedAsTagValue() string {
-	if !strings.Contains(m.Name, "~") {
-		return m.Name
-	}
-
-	sanitized := []byte(m.Name)
-	for i := 0; i < len(sanitized); i++ {
-		if sanitized[i] == '~' {
-			sanitized = append(sanitized[:i], sanitized[i+1:]...)
-			i--
-		}
-	}
-
-	return string(sanitized)
+	return SanitizeNameAsTagValue(m.Name)
 }
 
 func (m *MetricDefinition) SetId() {
@@ -265,6 +253,26 @@ func MetricDefinitionFromMetricData(d *MetricData) *MetricDefinition {
 	}
 
 	return md
+}
+
+// SanitizeNameAsTagValue takes a name and potentially
+// modifies it to ensure it is a valid value that can be
+// used as a tag value. This is important when we index
+// metric names as values of the tag "name"
+func SanitizeNameAsTagValue(name string) string {
+	if !strings.Contains(name, "~") {
+		return name
+	}
+
+	sanitized := []byte(name)
+	for i := 0; i < len(sanitized); i++ {
+		if sanitized[i] == '~' {
+			sanitized = append(sanitized[:i], sanitized[i+1:]...)
+			i--
+		}
+	}
+
+	return string(sanitized)
 }
 
 // ValidateTags returns whether all tags are in a valid format.
