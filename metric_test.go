@@ -175,3 +175,18 @@ func TestNameSanitizedAsTagValue(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkNameSanitizedAsTagValueWithValidValue(b *testing.B) {
+	inputValue := "some.id.of.a.metric.1"
+
+	for i := 0; i < b.N; i++ {
+		SanitizeNameAsTagValue(inputValue)
+	}
+}
+func BenchmarkNameSanitizedAsTagValueWithInvalidValue(b *testing.B) {
+	inputValue := "~some.id.of.a.metric.1"
+
+	for i := 0; i < b.N; i++ {
+		SanitizeNameAsTagValue(inputValue)
+	}
+}
