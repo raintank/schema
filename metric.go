@@ -166,7 +166,7 @@ func (m *MetricDefinition) NameWithTags() string {
 	return m.nameWithTags
 }
 
-func (m *MetricDefinition) NameSanitizedAsTagValue() string {
+func (m *MetricDefinition) NameSanitizedAsTagValue() (string, error) {
 	return SanitizeNameAsTagValue(m.Name)
 }
 
@@ -259,20 +259,27 @@ func MetricDefinitionFromMetricData(d *MetricData) *MetricDefinition {
 // modifies it to ensure it is a valid value that can be
 // used as a tag value. This is important when we index
 // metric names as values of the tag "name"
-func SanitizeNameAsTagValue(name string) string {
-	if !strings.Contains(name, "~") {
-		return name
+func SanitizeNameAsTagValue(name string) (string, error) {
+	if len(name) == 0 {
+		return name, fmt.Errorf("Invalid name of length 0")
 	}
 
-	sanitized := []byte(name)
-	for i := 0; i < len(sanitized); i++ {
-		if sanitized[i] == '~' {
-			sanitized = append(sanitized[:i], sanitized[i+1:]...)
-			i--
+	if name[0] != '~' {
+		return name, nil
+	}
+
+	i := 1
+	for ; i < len(name); i++ {
+		if name[i] != '~' {
+			break
 		}
 	}
 
-	return string(sanitized)
+	if i == len(name) {
+		return "", fmt.Errorf("Invalid name, requiring other characters than ~")
+	}
+
+	return name[i:], nil
 }
 
 // ValidateTags returns whether all tags are in a valid format.

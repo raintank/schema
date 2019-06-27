@@ -137,31 +137,39 @@ func TestNameSanitizedAsTagValue(t *testing.T) {
 	type testCase struct {
 		originalName string
 		expectedName string
+		expectError  bool
 	}
 	cases := []testCase{
 		{
 			originalName: "my~.test.abc",
-			expectedName: "my.test.abc",
-		}, {
-			originalName: "a.b.c",
-			expectedName: "a.b.c",
-		}, {
-			originalName: "~~a~~.~~~b~~~.~~~c~~~",
-			expectedName: "a.b.c",
-		}, {
-			originalName: "a.b.c~",
-			expectedName: "a.b.c",
+			expectedName: "my~.test.abc",
 		}, {
 			originalName: "~a.b.c",
 			expectedName: "a.b.c",
 		}, {
+			originalName: "~~a~~.~~~b~~~.~~~c~~~",
+			expectedName: "a~~.~~~b~~~.~~~c~~~",
+		}, {
 			originalName: "~a~",
-			expectedName: "a",
+			expectedName: "a~",
+		}, {
+			originalName: "~",
+			expectError:  true,
+		}, {
+			originalName: "~~~",
+			expectError:  true,
 		},
 	}
 	for i := range cases {
 		md := MetricDefinition{Name: cases[i].originalName}
-		sanitized := md.NameSanitizedAsTagValue()
+		sanitized, err := md.NameSanitizedAsTagValue()
+		if (err != nil) != cases[i].expectError {
+			if err == nil {
+				t.Fatalf("TC %d: Expected an error, but did not get one", i)
+			} else {
+				t.Fatalf("TC %d: Got an unexpected error: %s", i, err)
+			}
+		}
 		if sanitized != cases[i].expectedName {
 			t.Fatalf("TC %d: Expected sanitized version of %s to be %s, but it was %s", i, md.Name, cases[i].expectedName, sanitized)
 		}
