@@ -264,14 +264,14 @@ func SanitizeNameAsTagValue(name string) string {
 		return name
 	}
 
-	i := 1
-	for ; i < len(name); i++ {
+	for i := 1; i < len(name); i++ {
 		if name[i] != '~' {
-			break
+			return name[i:]
 		}
 	}
 
-	return name[i:]
+	// the whole name consists of no other chars than '~'
+	return ""
 }
 
 // ValidateTags returns whether all tags are in a valid format.
