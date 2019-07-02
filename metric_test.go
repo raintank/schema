@@ -41,6 +41,9 @@ func TestTagValidation(t *testing.T) {
 		{[]string{"@#$%=(*&"}, true},
 		{[]string{"@#$%=(*&", "abc=!fd", "a===="}, true},
 		{[]string{"@#$%=(*&", "abc=!fd", "a===;="}, false},
+		{[]string{"a=~a"}, false},
+		{[]string{"a=a~"}, true},
+		{[]string{"aaa"}, false},
 	}
 
 	for _, tc := range testCases {
