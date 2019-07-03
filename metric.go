@@ -16,10 +16,6 @@ var ErrInvalidEmptyName = errors.New("name cannot be empty")
 var ErrInvalidMtype = errors.New("invalid mtype")
 var ErrInvalidTagFormat = errors.New("invalid tag format")
 
-// as defined in https://github.com/graphite-project/graphite-web/blob/master/docs/tags.rst#carbon
-const invalidTagKeyChars = ";!^="
-const invalidTagValueChars = ";~"
-
 type PartitionedMetric interface {
 	Validate() error
 	SetId()
@@ -310,10 +306,24 @@ func ValidateTag(tag string) bool {
 	return ValidateTagKey(tag[:equal]) && ValidateTagValue(tag[equal+1:])
 }
 
+// ValidateTagKey validates tag key requirements as defined in graphite docs
 func ValidateTagKey(key string) bool {
-	return !strings.ContainsAny(key, invalidTagKeyChars)
+	if len(key) == 0 {
+		return false
+	}
+
+	return !strings.ContainsAny(key, ";!^=")
 }
 
+// ValidateTagValue is the same as the above ValidateTagKey, but for the tag value
 func ValidateTagValue(value string) bool {
-	return !strings.ContainsAny(value, invalidTagValueChars)
+	if len(value) == 0 {
+		return false
+	}
+
+	if value[0] == '~' {
+		return false
+	}
+
+	return !strings.ContainsRune(value, ';')
 }
