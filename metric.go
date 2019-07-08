@@ -20,8 +20,7 @@ var ErrUnknownPartitionMethod = errors.New("unknown partition method")
 type PartitionedMetric interface {
 	Validate() error
 	SetId()
-	// using the provided partitionByMethod, and number of partitions being used
-	// generate and return the partition id that should be used with this metric.
+	// PartitionID returns the partition id that should be used for this metric.
 	PartitionID(method PartitionByMethod, partitions int32) (int32, error)
 }
 
@@ -130,7 +129,7 @@ func (m *MetricDefinition) NameWithTags() string {
 		i++
 	}
 
-	// if a "name" tag existed, then we might have to shorten the slice
+	// if a "name" tag existed, then we have to shorten the slice
 	if i < len(m.Tags) {
 		m.Tags = m.Tags[:i]
 	}

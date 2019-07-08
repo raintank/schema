@@ -11,16 +11,19 @@ import (
 type PartitionByMethod uint8
 
 const (
-	// partition by organization, ignoring all other properties
+	// partition by organization id only
 	PartitionByOrg PartitionByMethod = iota
 
-	// partition by the metric name, without taking the tags into account
+	// partition by the metric name only
 	PartitionBySeries
 
-	// the recommended partitioning scheme to be used whenever possible, because it results in a good distribution
+	// partition by metric name and tags, with the best distribution
+	// recommended for new deployments.
 	PartitionBySeriesWithTags
 
-	// kept for backwards compatibility, but not recommended
+	// partition by metric name and tags, with a sub-optimal distribution when using tags.
+	// compatible with PartitionBySeries if a metric has no tags,
+	// making it possible to adopt tags for existing PartitionBySeries deployments without a migration.
 	PartitionBySeriesWithTagsFnv
 )
 
