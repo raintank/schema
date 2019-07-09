@@ -114,7 +114,7 @@ func (m *MetricDefinition) NameWithTags() string {
 	}
 
 	nameWithTagsBuffer := &bytes.Buffer{}
-	writeSortedTagString(nameWithTagsBuffer, m.Name, m.Tags)
+	_ = writeSortedTagString(nameWithTagsBuffer, m.Name, m.Tags)
 	m.nameWithTags = nameWithTagsBuffer.String()
 
 	var i int
