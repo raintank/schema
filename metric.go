@@ -247,41 +247,60 @@ func SanitizeNameAsTagValue(name string) string {
 // EatDots removes multiple consecutive, leading, and trailing dots
 // from name. If the provided name is only dots, it will return an
 // empty string
+// The wast majority of names will not need to be modified,
+// so we optimize for that case. This function only requires
+// allocations if the name does need to be modified.
 func EatDots(name string) string {
 	if len(name) == 0 {
 		return ""
 	}
 
-	n := strings.Trim(name, ".")
+	dotsToRemove := 0
+	if name[0] == '.' {
+		dotsToRemove++
+	}
+	for i := 1; i < len(name); i++ {
+		if name[i] == '.' {
+			if name[i-1] == '.' {
+				dotsToRemove++
+			}
+			if i == len(name)-1 {
+				dotsToRemove++
+			}
+		}
+	}
 
-	ln := len(n)
+	// the majority of cases will return here
+	if dotsToRemove == 0 {
+		return name
+	}
 
-	if ln == 0 {
+	if dotsToRemove >= len(name) {
 		return ""
 	}
 
-	rt := make([]byte, 0, ln)
-
-	for i, s := range n {
-
-		if s == '.' {
-			// since trailing dots are already removed we won't
-			// ever hit an index out of range
-			if n[i+1] == '.' {
-				continue
+	newName := make([]byte, len(name)-dotsToRemove)
+	j := 0
+	sawDot := false
+	for i := 0; i < len(name); i++ {
+		if name[i] == '.' {
+			if j > 0 {
+				sawDot = true
 			}
-
-			// if this is the last dot in a consecutive series, append it
-			rt = append(rt, '.')
 			continue
 		}
 
-		// if it is not a dot, append it
-		rt = append(rt, byte(s))
+		if sawDot {
+			newName[j] = '.'
+			sawDot = false
+			j++
+		}
+
+		newName[j] = name[i]
+		j++
 	}
 
-	// return a string representation of our clean byte slice
-	return string(rt)
+	return string(newName)
 }
 
 // ValidateTags returns whether all tags are in a valid format.
