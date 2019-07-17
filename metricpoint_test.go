@@ -6,6 +6,34 @@ import (
 	"testing"
 )
 
+var testMetrics = []string{
+	"some.id.of.a.metric",
+	".some.id.of.a.metric.",
+	"..some.id.of.a.metric",
+	"some.id....of.a.metric",
+	"some.id.of....a..metric",
+	"some...id.of.a.metric..",
+	".",
+	"...",
+	"..a.",
+	"...a",
+	"a...",
+}
+
+var expectedResults = []string{
+	"some.id.of.a.metric",
+	"some.id.of.a.metric",
+	"some.id.of.a.metric",
+	"some.id.of.a.metric",
+	"some.id.of.a.metric",
+	"some.id.of.a.metric",
+	"",
+	"",
+	"a",
+	"a",
+	"a",
+}
+
 func TestMetricPointMarshal(t *testing.T) {
 	tests := []MetricPoint{
 		{
@@ -166,6 +194,31 @@ func TestMetricPointMarshalMultiple(t *testing.T) {
 	for _, check := range checks {
 		if buf[check.pos] != check.val {
 			t.Fatalf("%s: expected val %d, got %d", check.comment, check.val, buf[check.pos])
+		}
+	}
+}
+
+func TestEatDots(t *testing.T) {
+	results := make([]string, 0, len(testMetrics))
+
+	for _, s := range testMetrics {
+		results = append(results, EatDots(s))
+	}
+
+	for i := range results {
+		if results[i] != expectedResults[i] {
+			t.Errorf("Result '%s' does not match expected '%s'", results[i], expectedResults[i])
+		}
+	}
+}
+
+var globalString string
+
+func BenchmarkEatDots(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for _, s := range testMetrics {
+			globalString = EatDots(s)
 		}
 	}
 }

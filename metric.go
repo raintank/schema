@@ -244,6 +244,46 @@ func SanitizeNameAsTagValue(name string) string {
 	return ""
 }
 
+// EatDots removes multiple consecutive, leading, and trailing dots
+// from name. If the provided name is only dots, it will return an
+// empty string
+func EatDots(name string) string {
+	if len(name) == 0 {
+		return ""
+	}
+
+	n := strings.Trim(name, ".")
+
+	ln := len(n)
+
+	if ln == 0 {
+		return ""
+	}
+
+	rt := make([]byte, 0, ln)
+
+	for i, s := range n {
+
+		if s == '.' {
+			// since trailing dots are already removed we won't
+			// ever hit an index out of range
+			if n[i+1] == '.' {
+				continue
+			}
+
+			// if this is the last dot in a consecutive series, append it
+			rt = append(rt, '.')
+			continue
+		}
+
+		// if it is not a dot, append it
+		rt = append(rt, byte(s))
+	}
+
+	// return a string representation of our clean byte slice
+	return string(rt)
+}
+
 // ValidateTags returns whether all tags are in a valid format.
 // a valid format is anything that looks like key=value,
 // the length of key and value must be >0 and both cannot contain
