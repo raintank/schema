@@ -247,7 +247,7 @@ func SanitizeNameAsTagValue(name string) string {
 // EatDots removes multiple consecutive, leading, and trailing dots
 // from name. If the provided name is only dots, it will return an
 // empty string
-// The wast majority of names will not need to be modified,
+// The vast majority of names will not need to be modified,
 // so we optimize for that case. This function only requires
 // allocations if the name does need to be modified.
 func EatDots(name string) string {
